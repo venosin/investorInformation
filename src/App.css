@@ -1,0 +1,21 @@
+/* Estilos personalizados adicionales que complementan a Tailwind */
+
+/* Animaciones personalizadas */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out forwards;
+}
+
+/* Estilos para campos de formulario cuando están en foco */
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* Transiciones suaves para todos los elementos interactivos */
+button, a, input, select, textarea {
+  transition: all 0.2s ease-in-out;
+}
