@@ -4,7 +4,7 @@
  * donde se depositarán las utilidades generadas por la inversión.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import FormSection from './FormSection';
 
 /**
@@ -13,9 +13,27 @@ import FormSection from './FormSection';
  * @param {Object} props - Propiedades del componente
  * @param {Function} props.register - Función de react-hook-form para registrar campos
  * @param {Object} props.errors - Objeto con errores de validación de los campos
+ * @param {Function} props.setValue - Función para establecer valores de campos en el formulario
+ * @param {Function} props.watch - Función para observar valores de campos en el formulario
  * @returns {JSX.Element} Sección del formulario con campos bancarios
  */
-function BankInfoSection({ register, errors }) {
+function BankInfoSection({ register, errors, setValue, watch }) {
+  // Estado para controlar si se muestra el campo de texto para otro banco
+  const [showOtherBankField, setShowOtherBankField] = useState(false);
+  
+  // Observar el valor seleccionado en el campo bankName
+  const selectedBank = watch("bankName");
+  
+  // Efecto para mostrar/ocultar campo de texto según la selección
+  useEffect(() => {
+    setShowOtherBankField(selectedBank === "Otro");
+    
+    // Si cambia a una opción diferente de "Otro", limpiar el campo customBank
+    if (selectedBank !== "Otro") {
+      setValue("customBank", "");
+    }
+  }, [selectedBank, setValue]);
+  
   // Lista de bancos disponibles para selección
   const bancosSalvador = [
     'Banco Agrícola',
@@ -68,6 +86,36 @@ function BankInfoSection({ register, errors }) {
             <p id="bankName-error" className="mt-1 text-sm text-red-600" role="alert">
               {errors.bankName.message}
             </p>
+          )}
+          
+          {/* Campo para ingresar un banco personalizado si se selecciona 'Otro' */}
+          {showOtherBankField && (
+            <div className="mt-3">
+              <label htmlFor="customBank" className="block text-sm font-medium text-gray-700 mb-1">
+                Especifique el banco <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="customBank"
+                type="text"
+                aria-required="true"
+                aria-invalid={errors.customBank ? "true" : "false"}
+                aria-describedby={errors.customBank ? "customBank-error" : undefined}
+                {...register("customBank", { 
+                  required: "Por favor especifique el nombre del banco" 
+                })}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                  errors.customBank ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="Ingrese el nombre del banco"
+              />
+              
+              {/* Mensaje de error para validación */}
+              {errors.customBank && (
+                <p id="customBank-error" className="mt-1 text-sm text-red-600" role="alert">
+                  {errors.customBank.message}
+                </p>
+              )}
+            </div>
           )}
         </div>
         
