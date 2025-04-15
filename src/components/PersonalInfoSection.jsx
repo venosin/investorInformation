@@ -3,7 +3,7 @@
  * Incluye campos para nombre, DUI, teléfono, correo y foto de DUI.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FormSection from './FormSection';
 
 /**
@@ -17,30 +17,52 @@ import FormSection from './FormSection';
  * @returns {JSX.Element} Sección de información personal
  */
 function PersonalInfoSection({ register, errors, setValue }) {
-  // Inicializar estados y verificar localStorage
-  const [previewImage, setPreviewImage] = useState(() => {
+  // Inicializar estados y verificar localStorage para ambas caras del DUI
+  // Estados para el frente del DUI
+  const [frontPreviewImage, setFrontPreviewImage] = useState(null);
+  const [frontFileName, setFrontFileName] = useState('');
+  
+  // Estados para el reverso del DUI
+  const [backPreviewImage, setBackPreviewImage] = useState(null);
+  const [backFileName, setBackFileName] = useState('');
+  
+  // Efecto para cargar de localStorage al inicio
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('duiPhotoPreview');
-      return saved || null;
+      // Cargar imagen del frente del DUI
+      const savedFrontImage = localStorage.getItem('duiFrontPhotoPreview');
+      const savedFrontFileName = localStorage.getItem('duiFrontPhotoName');
+      
+      if (savedFrontImage && savedFrontFileName) {
+        console.log('Cargando imagen del frente del DUI desde localStorage');
+        setFrontPreviewImage(savedFrontImage);
+        setFrontFileName(savedFrontFileName);
+        
+        // Indicamos que tenemos la imagen del frente
+        setValue('duiFrontPhotoLoaded', true);
+      }
+      
+      // Cargar imagen del reverso del DUI
+      const savedBackImage = localStorage.getItem('duiBackPhotoPreview');
+      const savedBackFileName = localStorage.getItem('duiBackPhotoName');
+      
+      if (savedBackImage && savedBackFileName) {
+        console.log('Cargando imagen del reverso del DUI desde localStorage');
+        setBackPreviewImage(savedBackImage);
+        setBackFileName(savedBackFileName);
+        
+        // Indicamos que tenemos la imagen del reverso
+        setValue('duiBackPhotoLoaded', true);
+      }
     } catch (e) {
       console.error('Error al leer de localStorage:', e);
-      return null;
     }
-  });
+  }, [setValue, setFrontPreviewImage, setFrontFileName, setBackPreviewImage, setBackFileName]);
   
-  const [fileName, setFileName] = useState(() => {
-    try {
-      const saved = localStorage.getItem('duiPhotoName');
-      return saved || '';
-    } catch (e) {
-      console.error('Error al leer de localStorage:', e);
-      return '';
-    }
-  });
-  
-  // Función para manejar la carga de archivo de forma segura
-  const handleFileChange = (e) => {
-    console.log('Seleccionando archivo...');
+  // Función para manejar la carga de archivo del frente del DUI
+  const handleFrontFileChange = (e) => {
+    console.log('Seleccionando archivo para el frente del DUI...');
+    
     const file = e.target.files[0];
     if (!file) {
       console.log('No se seleccionó ningún archivo');
@@ -48,49 +70,135 @@ function PersonalInfoSection({ register, errors, setValue }) {
     }
     
     try {
-      console.log('Archivo seleccionado:', file.name);
+      console.log('Archivo seleccionado para el frente:', file.name);
       // Guardar el nombre del archivo
-      setFileName(file.name);
+      setFrontFileName(file.name);
       
       // Crear URL para vista previa
       const reader = new FileReader();
       reader.onload = function(event) {
-        console.log('Archivo leído correctamente, generando vista previa');
+        console.log('Archivo del frente leído correctamente, generando vista previa');
         const imageUrl = event.target.result;
-        setPreviewImage(imageUrl);
+        setFrontPreviewImage(imageUrl);
+        
         // Guardamos también en el localStorage para persistencia
         try {
-          localStorage.setItem('duiPhotoPreview', imageUrl);
-          localStorage.setItem('duiPhotoName', file.name);
-          console.log('Vista previa guardada en localStorage');
+          localStorage.setItem('duiFrontPhotoPreview', imageUrl);
+          localStorage.setItem('duiFrontPhotoName', file.name);
+          console.log('Vista previa del frente guardada en localStorage');
         } catch (e) {
           console.error('Error al guardar en localStorage:', e);
         }
+        
+        // Usamos un campo virtual para indicar que tenemos un archivo
+        setValue('duiFrontPhotoLoaded', true, { shouldValidate: true });
+        setValue('duiFrontPhotoFile', file, { shouldValidate: false });
+        console.log('Archivo del frente registrado en el formulario');
       };
-      reader.readAsDataURL(file);
       
-      // Guardar el archivo en react-hook-form
-      setValue('duiPhoto', file);
-      console.log('Archivo guardado en el formulario');
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error al procesar el archivo:', error);
+      console.error('Error al procesar el archivo del frente:', error);
     }
   };
   
-  // Función para eliminar la imagen
-  const handleRemoveImage = () => {
-    console.log('Eliminando imagen...');
-    setPreviewImage(null);
-    setFileName('');
-    setValue('duiPhoto', null);
+  // Función para manejar la carga de archivo del reverso del DUI
+  const handleBackFileChange = (e) => {
+    console.log('Seleccionando archivo para el reverso del DUI...');
+    
+    const file = e.target.files[0];
+    if (!file) {
+      console.log('No se seleccionó ningún archivo');
+      return;
+    }
+    
+    try {
+      console.log('Archivo seleccionado para el reverso:', file.name);
+      // Guardar el nombre del archivo
+      setBackFileName(file.name);
+      
+      // Crear URL para vista previa
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        console.log('Archivo del reverso leído correctamente, generando vista previa');
+        const imageUrl = event.target.result;
+        setBackPreviewImage(imageUrl);
+        
+        // Guardamos también en el localStorage para persistencia
+        try {
+          localStorage.setItem('duiBackPhotoPreview', imageUrl);
+          localStorage.setItem('duiBackPhotoName', file.name);
+          console.log('Vista previa del reverso guardada en localStorage');
+        } catch (e) {
+          console.error('Error al guardar en localStorage:', e);
+        }
+        
+        // Usamos un campo virtual para indicar que tenemos un archivo
+        setValue('duiBackPhotoLoaded', true, { shouldValidate: true });
+        setValue('duiBackPhotoFile', file, { shouldValidate: false });
+        console.log('Archivo del reverso registrado en el formulario');
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error al procesar el archivo del reverso:', error);
+    }
+  };
+  
+  // Función para eliminar la imagen del frente
+  const handleRemoveFrontImage = () => {
+    console.log('Eliminando imagen del frente...');
+    setFrontPreviewImage(null);
+    setFrontFileName('');
+    
+    // Establecer explícitamente que no hay archivo del frente
+    setValue('duiFrontPhotoLoaded', false, { shouldValidate: true });
+    setValue('duiFrontPhotoFile', null);
+    
     // Limpiar localStorage
     try {
-      localStorage.removeItem('duiPhotoPreview');
-      localStorage.removeItem('duiPhotoName');
+      localStorage.removeItem('duiFrontPhotoPreview');
+      localStorage.removeItem('duiFrontPhotoName');
+      console.log('Imagen del frente eliminada de localStorage');
     } catch (e) {
       console.error('Error al eliminar de localStorage:', e);
     }
-    console.log('Imagen eliminada');
+    
+    console.log('Imagen del frente eliminada completamente');
+    
+    // Resetear el input file
+    const fileInput = document.getElementById('duiFrontPhoto');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+  
+  // Función para eliminar la imagen del reverso
+  const handleRemoveBackImage = () => {
+    console.log('Eliminando imagen del reverso...');
+    setBackPreviewImage(null);
+    setBackFileName('');
+    
+    // Establecer explícitamente que no hay archivo del reverso
+    setValue('duiBackPhotoLoaded', false, { shouldValidate: true });
+    setValue('duiBackPhotoFile', null);
+    
+    // Limpiar localStorage
+    try {
+      localStorage.removeItem('duiBackPhotoPreview');
+      localStorage.removeItem('duiBackPhotoName');
+      console.log('Imagen del reverso eliminada de localStorage');
+    } catch (e) {
+      console.error('Error al eliminar de localStorage:', e);
+    }
+    
+    console.log('Imagen del reverso eliminada completamente');
+    
+    // Resetear el input file
+    const fileInput = document.getElementById('duiBackPhoto');
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
   /**
    * Formatea automáticamente el número de teléfono (xxxx-xxxx)
@@ -263,11 +371,22 @@ function PersonalInfoSection({ register, errors, setValue }) {
       </div>
       
       <div className="mt-6">
-        <label htmlFor="duiPhoto" className="block text-sm font-bold text-gray-900 mb-1" style={{color: '#000000'}}>
-          Foto de DUI *
-        </label>
-        <div className="mt-1 border-4 border-gray-700 rounded-lg overflow-hidden" style={{borderColor: '#000000'}}>
-          {previewImage ? (
+        <div className="flex items-center mb-2">
+          <h3 className="text-xl font-bold text-gray-900" style={{color: '#000000'}}>
+            Fotos de DUI *
+          </h3>
+          <div className="ml-3 text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+            (Se requieren ambos lados)
+          </div>
+        </div>
+        
+        {/* Sección para la foto del frente del DUI */}
+        <div className="mb-6">
+          <label htmlFor="duiFrontPhoto" className="block text-sm font-bold text-gray-900 mb-1" style={{color: '#000000'}}>
+            Frente del DUI *
+          </label>
+          <div className="mt-1 border-4 border-gray-700 rounded-lg overflow-hidden" style={{borderColor: '#000000'}}>
+            {frontPreviewImage ? (
             <div className="relative">
               {/* Imagen cargada con feedback visual */}
               <div className="bg-green-100 p-4 border-b-4 border-green-500" style={{backgroundColor: '#dcfce7', borderColor: '#22c55e'}}>
@@ -285,15 +404,15 @@ function PersonalInfoSection({ register, errors, setValue }) {
                   <svg className="h-5 w-5 mr-1 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{color: '#000000'}}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
-                  <span className="font-bold">Archivo: {fileName}</span>
+                  <span className="font-bold">Archivo: {frontFileName}</span>
                 </p>
               </div>
               
               {/* Vista previa ampliada */}
               <div className="bg-white p-6 flex justify-center" style={{backgroundColor: '#ffffff'}}>
                 <img 
-                  src={previewImage} 
-                  alt="Vista previa del DUI" 
+                  src={frontPreviewImage} 
+                  alt="Vista previa del frente del DUI" 
                   className="max-w-full max-h-64 object-contain rounded-md border-4 border-black shadow-md"
                   style={{borderColor: '#000000'}}
                 />
@@ -305,7 +424,7 @@ function PersonalInfoSection({ register, errors, setValue }) {
                   type="button"
                   className="py-3 px-4 bg-red-600 text-white font-bold text-lg rounded-md hover:bg-red-700 transition-all shadow-lg w-full flex items-center justify-center"
                   style={{color: '#ffffff', backgroundColor: '#dc2626', borderColor: '#b91c1c'}}
-                  onClick={handleRemoveImage}
+                  onClick={handleRemoveFrontImage}
                 >
                   <span className="flex items-center">
                     <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -315,7 +434,7 @@ function PersonalInfoSection({ register, errors, setValue }) {
                   </span>
                 </button>
                 <label
-                  htmlFor="duiPhoto"
+                  htmlFor="duiFrontPhoto"
                   className="py-3 px-4 bg-blue-600 text-white font-bold text-lg rounded-md cursor-pointer hover:bg-blue-700 transition-all shadow-lg w-full flex items-center justify-center"
                   style={{color: '#ffffff', backgroundColor: '#2563eb'}}
                 >
@@ -324,15 +443,13 @@ function PersonalInfoSection({ register, errors, setValue }) {
                   </svg>
                   CAMBIAR IMAGEN
                   <input 
-                    id="duiPhoto" 
-                    name="duiPhoto" 
+                    id="duiFrontPhoto" 
+                    name="duiFrontPhoto" 
                     type="file" 
                     accept="image/*"
                     className="hidden" 
-                    onChange={handleFileChange}
-                    {...register("duiPhoto", { 
-                      required: "La foto del DUI es requerida" 
-                    })}
+                    onChange={handleFrontFileChange}
+                    // Ya no usamos register para el input file, lo manejamos manualmente
                   />
                 </label>
               </div>
@@ -354,54 +471,189 @@ function PersonalInfoSection({ register, errors, setValue }) {
                   strokeLinejoin="round"
                 />
               </svg>
-              <p className="text-xl font-bold text-black mb-2" style={{color: '#000000'}}>Selecciona una imagen de tu DUI</p>
+              <p className="text-xl font-bold text-black mb-2" style={{color: '#000000'}}>Selecciona una imagen del <strong>FRENTE</strong> de tu DUI</p>
               <p className="text-md text-black mb-6 text-center" style={{color: '#000000'}}>Formato aceptado: JPG, PNG o GIF (hasta 10MB)</p>
               <label
-                htmlFor="duiPhoto"
+                htmlFor="duiFrontPhoto"
                 className="inline-flex items-center py-3 px-6 bg-blue-700 text-white font-bold rounded-md cursor-pointer hover:bg-blue-800 transition-all border-2 border-blue-900 shadow-md"
                 style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
               >
                 <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                 </svg>
-                Seleccionar imagen
+                Seleccionar imagen del frente
                 <input 
-                  id="duiPhoto" 
-                  name="duiPhoto" 
+                  id="duiFrontPhoto" 
+                  name="duiFrontPhoto" 
                   type="file" 
                   accept="image/*"
                   className="hidden" 
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      setFileName(file.name);
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setPreviewImage(reader.result);
-                      };
-                      reader.readAsDataURL(file);
-                      setValue('duiPhoto', file);
-                    }
-                  }}
-                  {...register("duiPhoto", { 
-                    required: "La foto del DUI es requerida" 
-                  })}
+                  onChange={handleFrontFileChange}
+                  // Ya no usamos register para el input file, lo manejamos manualmente
                 />
               </label>
               <p className="text-xs font-medium text-gray-700 mt-4" style={{color: '#374151'}}>PNG, JPG, GIF hasta 10MB</p>
             </div>
           )}
         </div>
-        {errors.duiPhoto && (
+          
+        {/* Mensajes de error para el frente del DUI */}
+        {errors.duiFrontPhotoLoaded && (
           <div className="mt-2 p-3 bg-red-100 border-2 border-red-500 rounded-lg" style={{backgroundColor: '#fee2e2', borderColor: '#ef4444'}}>
             <p className="font-bold text-red-700 flex items-center" style={{color: '#b91c1c'}}>
               <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              {errors.duiPhoto.message}
+              La foto del frente del DUI es requerida
             </p>
           </div>
         )}
+        </div>
+        
+        {/* Sección para la foto del reverso del DUI */}
+        <div className="mb-6">
+          <label htmlFor="duiBackPhoto" className="block text-sm font-bold text-gray-900 mb-1" style={{color: '#000000'}}>
+            Reverso del DUI *
+          </label>
+          <div className="mt-1 border-4 border-gray-700 rounded-lg overflow-hidden" style={{borderColor: '#000000'}}>
+            {backPreviewImage ? (
+              <div className="relative">
+                {/* Imagen cargada con feedback visual */}
+                <div className="bg-green-100 p-4 border-b-4 border-green-500" style={{backgroundColor: '#dcfce7', borderColor: '#22c55e'}}>
+                  <div className="flex items-center mb-2">
+                    <div className="flex-shrink-0 mr-2">
+                      <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{color: '#059669'}}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="text-md font-bold text-green-800" style={{color: '#166534'}}>
+                      ¡IMAGEN REVERSO CARGADA EXITOSAMENTE!
+                    </div>
+                  </div>
+                  <p className="text-sm text-black font-bold flex items-center" style={{color: '#000000'}}>
+                    <svg className="h-5 w-5 mr-1 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{color: '#000000'}}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    <span className="font-bold">Archivo: {backFileName}</span>
+                  </p>
+                </div>
+                
+                {/* Vista previa ampliada */}
+                <div className="bg-white p-6 flex justify-center" style={{backgroundColor: '#ffffff'}}>
+                  <img 
+                    src={backPreviewImage} 
+                    alt="Vista previa del reverso del DUI" 
+                    className="max-w-full max-h-64 object-contain rounded-md border-4 border-black shadow-md"
+                    style={{borderColor: '#000000'}}
+                  />
+                </div>
+                
+                {/* Botones de acción */}
+                <div className="bg-gray-100 p-4 grid grid-cols-1 gap-3 border-t-4 border-black" style={{backgroundColor: '#f5f5f5', borderColor: '#000000'}}>
+                  <button
+                    type="button"
+                    className="py-3 px-4 bg-red-600 text-white font-bold text-lg rounded-md hover:bg-red-700 transition-all shadow-lg w-full flex items-center justify-center"
+                    style={{color: '#ffffff', backgroundColor: '#dc2626', borderColor: '#b91c1c'}}
+                    onClick={handleRemoveBackImage}
+                  >
+                    <span className="flex items-center">
+                      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      ELIMINAR IMAGEN
+                    </span>
+                  </button>
+                  <label
+                    htmlFor="duiBackPhoto"
+                    className="py-3 px-4 bg-blue-600 text-white font-bold text-lg rounded-md cursor-pointer hover:bg-blue-700 transition-all shadow-lg w-full flex items-center justify-center"
+                    style={{color: '#ffffff', backgroundColor: '#2563eb'}}
+                  >
+                    <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
+                    </svg>
+                    CAMBIAR IMAGEN
+                    <input 
+                      id="duiBackPhoto" 
+                      name="duiBackPhoto" 
+                      type="file" 
+                      accept="image/*"
+                      className="hidden" 
+                      onChange={handleBackFileChange}
+                      // Ya no usamos register para el input file, lo manejamos manualmente
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 flex flex-col items-center bg-white" style={{backgroundColor: '#ffffff'}}>
+                <svg
+                  className="mx-auto h-20 w-20 text-black mb-4"
+                  stroke="currentColor"
+                  fill="none"
+                  viewBox="0 0 48 48"
+                  aria-hidden="true"
+                  style={{color: '#000000'}}
+                >
+                  <path
+                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <p className="text-xl font-bold text-black mb-2" style={{color: '#000000'}}>Selecciona una imagen del <strong>REVERSO</strong> de tu DUI</p>
+                <p className="text-md text-black mb-6 text-center" style={{color: '#000000'}}>Formato aceptado: JPG, PNG o GIF (hasta 10MB)</p>
+                <label
+                  htmlFor="duiBackPhoto"
+                  className="inline-flex items-center py-3 px-6 bg-blue-700 text-white font-bold rounded-md cursor-pointer hover:bg-blue-800 transition-all border-2 border-blue-900 shadow-md"
+                  style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
+                  </svg>
+                  Seleccionar imagen del reverso
+                  <input 
+                    id="duiBackPhoto" 
+                    name="duiBackPhoto" 
+                    type="file" 
+                    accept="image/*"
+                    className="hidden" 
+                    onChange={handleBackFileChange}
+                    // Ya no usamos register para el input file, lo manejamos manualmente
+                  />
+                </label>
+                <p className="text-xs font-medium text-gray-700 mt-4" style={{color: '#374151'}}>PNG, JPG, GIF hasta 10MB</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Mensajes de error para el reverso del DUI */}
+          {errors.duiBackPhotoLoaded && (
+            <div className="mt-2 p-3 bg-red-100 border-2 border-red-500 rounded-lg" style={{backgroundColor: '#fee2e2', borderColor: '#ef4444'}}>
+              <p className="font-bold text-red-700 flex items-center" style={{color: '#b91c1c'}}>
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                La foto del reverso del DUI es requerida
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* Campos ocultos para la validación */}
+        <input
+          type="hidden"
+          {...register("duiFrontPhotoLoaded", { 
+            validate: value => value === true || "La foto del frente del DUI es requerida"
+          })}
+        />
+        
+        <input
+          type="hidden"
+          {...register("duiBackPhotoLoaded", { 
+            validate: value => value === true || "La foto del reverso del DUI es requerida"
+          })}
+        />
       </div>
     </FormSection>
   );
