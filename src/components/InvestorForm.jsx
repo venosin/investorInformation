@@ -293,6 +293,7 @@ function InvestorForm() {
                 register={register}
                 errors={errors}
                 setValue={setValue}
+                watch={watch}
               />
             )}
 
@@ -324,7 +325,7 @@ function InvestorForm() {
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors border-2 border-black shadow-md" style={{color: '#000000', backgroundColor: '#ffffff'}}
                   aria-label="Ir al paso anterior"
                 >
                   Anterior
@@ -336,7 +337,7 @@ function InvestorForm() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="ml-auto px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  className="ml-auto px-6 py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors border-2 border-blue-900 shadow-md" style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
                   aria-label="Ir al siguiente paso"
                 >
                   Siguiente
@@ -346,7 +347,7 @@ function InvestorForm() {
                 <button
                   type="submit"
                   disabled={isSubmitting} // Deshabilita durante el envío
-                  className="ml-auto px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-400"
+                  className="ml-auto px-6 py-3 bg-green-700 text-white font-bold rounded-lg hover:bg-green-800 transition-colors disabled:bg-green-400 border-2 border-green-900 shadow-md" style={{color: '#ffffff', backgroundColor: '#15803d'}}
                   aria-busy={isSubmitting}
                   aria-label="Enviar formulario"
                 >
