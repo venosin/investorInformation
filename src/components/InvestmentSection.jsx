@@ -57,6 +57,12 @@ function InvestmentSection({ register, errors, setValue }) {
         const imageUrl = event.target.result;
         setPaymentReceiptImage(imageUrl);
         
+        // Verificación de que la imagen se guarda correctamente
+        console.log('Comprobante de pago guardado en localStorage. Primeros 50 caracteres:', 
+                    localStorage.getItem('paymentReceiptPhotoPreview').substring(0, 50));
+        console.log('Longitud total de la imagen del comprobante:', 
+                    localStorage.getItem('paymentReceiptPhotoPreview').length);
+        
         // Guardamos también en el localStorage para persistencia
         try {
           localStorage.setItem('paymentReceiptPhotoPreview', imageUrl);

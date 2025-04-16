@@ -185,13 +185,16 @@ function doPost(e) {
       
       // Agregar encabezados
       sheet.appendRow([
-        'Fecha', 'Nombre Completo', 'DUI', 'Teléfono', 'Email', 'Banco', 
+        'Fecha', 'ID Inversionista', 'Nombre Completo', 'DUI', 'Teléfono', 'Email', 'Banco', 
         'Número de Cuenta', 'Tipo de Cuenta', 'Beneficiario 1', 
         'Teléfono Beneficiario 1', 'Instagram Beneficiario 1', 
         'Beneficiario 2', 'Teléfono Beneficiario 2', 'Instagram Beneficiario 2', 
-        'Monto de Inversión', 'Comentarios'
+        'Monto de Inversión', 'Comentarios', 'DUI Frontal', 'DUI Reverso', 'Comprobante'
       ]);
     }
+    
+    // DIAGNÓSTICO ADICIONAL: Registrar todas las claves recibidas
+    logEvent(logSheet, requestId, e, 'DIAGNÓSTICO', 'Claves recibidas en el formulario: ' + Object.keys(jsonData).join(', '));
     
     // 7. Preparar y validar los datos
     // Sanitizar datos y evitar posibles inyecciones
@@ -201,6 +204,31 @@ function doPost(e) {
     logEvent(logSheet, requestId, e, 'DEBUG', 'DUI Frontal presente: ' + (sanitizedData.duiFrontPhotoPreview ? 'SÍ' : 'NO'));
     logEvent(logSheet, requestId, e, 'DEBUG', 'DUI Reverso presente: ' + (sanitizedData.duiBackPhotoPreview ? 'SÍ' : 'NO'));
     logEvent(logSheet, requestId, e, 'DEBUG', 'Comprobante presente: ' + (sanitizedData.paymentReceiptPhotoPreview ? 'SÍ' : 'NO'));
+    
+    // Inspección profunda: Registrar los primeros 50 caracteres y la longitud de cada imagen si están presentes
+    if (sanitizedData.duiFrontPhotoPreview) {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Frontal primeros 50 caracteres: ' + sanitizedData.duiFrontPhotoPreview.substring(0, 50));
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Frontal longitud: ' + sanitizedData.duiFrontPhotoPreview.length + ' caracteres');
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Frontal es base64 válido: ' + (sanitizedData.duiFrontPhotoPreview.startsWith('data:image') ? 'SÍ' : 'NO'));
+    } else {
+      logEvent(logSheet, requestId, e, 'ERROR', 'DUI Frontal falta completamente o es undefined/null');
+    }
+    
+    if (sanitizedData.duiBackPhotoPreview) {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Reverso primeros 50 caracteres: ' + sanitizedData.duiBackPhotoPreview.substring(0, 50));
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Reverso longitud: ' + sanitizedData.duiBackPhotoPreview.length + ' caracteres');
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'DUI Reverso es base64 válido: ' + (sanitizedData.duiBackPhotoPreview.startsWith('data:image') ? 'SÍ' : 'NO'));
+    } else {
+      logEvent(logSheet, requestId, e, 'ERROR', 'DUI Reverso falta completamente o es undefined/null');
+    }
+    
+    if (sanitizedData.paymentReceiptPhotoPreview) {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Comprobante primeros 50 caracteres: ' + sanitizedData.paymentReceiptPhotoPreview.substring(0, 50));
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Comprobante longitud: ' + sanitizedData.paymentReceiptPhotoPreview.length + ' caracteres');
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Comprobante es base64 válido: ' + (sanitizedData.paymentReceiptPhotoPreview.startsWith('data:image') ? 'SÍ' : 'NO'));
+    } else {
+      logEvent(logSheet, requestId, e, 'ERROR', 'Comprobante falta completamente o es undefined/null');
+    }
     
     // Preparar el banco para el registro
     var bankName = sanitizedData.bankName === 'Otro' ? sanitizedData.customBank : sanitizedData.bankName;
@@ -214,54 +242,81 @@ function doPost(e) {
     var paymentReceiptImageInfo = {};
     
     try {
+      // DIAGNÓSTICO CRÍTICO: Verificar datos de imágenes antes de procesarlas
+      if (sanitizedData.duiFrontPhotoPreview) {
+        logEvent(logSheet, requestId, e, 'DIAGNÓSTICO-IMAGEN', 'DUI Frontal ENCONTRADO de longitud: ' + sanitizedData.duiFrontPhotoPreview.length);
+        // Verificar si comienza con data:image
+        logEvent(logSheet, requestId, e, 'DIAGNÓSTICO-IMAGEN', 'DUI Frontal comienza correctamente: ' + (sanitizedData.duiFrontPhotoPreview.startsWith('data:image') ? 'SÍ' : 'NO'));
+      } else {
+        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'DUI Frontal NO ENCONTRADO o es NULL');
+      }
+      
       // Log adicional para depuración
       logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'Comenzando procesamiento de imágenes...');
       
-      // Forzar creación de carpeta raíz para probar
-      let testFolder = getOrCreateFolder('Inversionistas - Documentos Seguros');
-      logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'Carpeta raíz ID: ' + testFolder.getId());
-      
-      // Procesar imagen frontal del DUI
-      if (sanitizedData.duiFrontPhotoPreview) {
-        // Log para verificar contenido
-        logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'Longitud de datos DUI Frontal: ' + sanitizedData.duiFrontPhotoPreview.length);
-        // Verificar si el formato es correcto
-        logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'Formato correcto DUI Frontal: ' + (sanitizedData.duiFrontPhotoPreview.indexOf('data:image/') === 0 ? 'SÍ' : 'NO'));
-        duiFrontImageInfo = secureImageStorage(
-          sanitizedData.duiFrontPhotoPreview,
-          `DUI_Frontal_${sanitizedData.fullName || 'Inversionista'}.jpg`,
-          investorId,
-          sanitizedData.fullName || ''
-        );
-        logEvent(logSheet, requestId, e, 'Imagen guardada', 'DUI Frontal guardado en Drive: ' + duiFrontImageInfo.url);
-      } else {
-        logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'No se encontró imagen frontal del DUI');
-      }
-      
-      // Procesar imagen trasera del DUI
-      if (sanitizedData.duiBackPhotoPreview) {
-        duiBackImageInfo = secureImageStorage(
-          sanitizedData.duiBackPhotoPreview,
-          `DUI_Reverso_${sanitizedData.fullName || 'Inversionista'}.jpg`,
-          investorId,
-          sanitizedData.fullName || ''
-        );
-        logEvent(logSheet, requestId, e, 'Imagen guardada', 'DUI Reverso guardado en Drive');
-      }
-      
-      // Procesar imagen del comprobante de pago
-      if (sanitizedData.paymentReceiptPhotoPreview) {
-        paymentReceiptImageInfo = secureImageStorage(
-          sanitizedData.paymentReceiptPhotoPreview,
-          `Comprobante_Pago_${sanitizedData.fullName || 'Inversionista'}.jpg`,
-          investorId,
-          sanitizedData.fullName || ''
-        );
-        logEvent(logSheet, requestId, e, 'Imagen guardada', 'Comprobante de pago guardado en Drive');
+      // Forzar creación de carpeta raíz para probar usando DriveApp directamente
+      try {
+        // 1. CREAR LA CARPETA PARA EL INVERSIONISTA
+        logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Intentando acceder a DriveApp...');
+        let rootFolder = DriveApp.getRootFolder();
+        logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Acceso a Drive obtenido correctamente. Nombre de carpeta raíz: ' + rootFolder.getName());
+        
+        // Crear un nombre de carpeta único para este inversionista usando su ID
+        let investorFolderName = 'Inversionista_' + investorId;
+        let investorFolder;
+        
+        try {
+          // Crear carpeta para este inversionista
+          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Intentando crear carpeta: ' + investorFolderName);
+          investorFolder = rootFolder.createFolder(investorFolderName);
+          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Carpeta creada exitosamente para inversionista: ' + investorFolderName + ' | ID: ' + investorFolder.getId());
+        } catch (folderError) {
+          logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Error al crear carpeta: ' + folderError.message);
+          logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Stacktrace del error: ' + (folderError.stack || 'No disponible'));
+          // Intentar usar directamente la raíz si falla la creación de carpeta
+          logEvent(logSheet, requestId, e, 'DIAGNÓSTICO', 'Usando carpeta raíz como alternativa');
+          investorFolder = rootFolder;
+        }
+        
+        // 2. PROCESAR DUI FRONTAL SI EXISTE
+        if (sanitizedData.duiFrontPhotoPreview) {
+          var imageData = extractBase64Data(sanitizedData.duiFrontPhotoPreview);
+          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'DUI_Frontal.jpg');
+          var duiFrontFile = investorFolder.createFile(fileBlob);
+          duiFrontFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          duiFrontImageInfo = { success: true, url: duiFrontFile.getUrl() };
+          logEvent(logSheet, requestId, e, 'INFO', 'DUI Frontal guardado correctamente: ' + duiFrontImageInfo.url);
+        }
+        
+        // 3. PROCESAR DUI REVERSO SI EXISTE
+        if (sanitizedData.duiBackPhotoPreview) {
+          var imageData = extractBase64Data(sanitizedData.duiBackPhotoPreview);
+          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'DUI_Reverso.jpg');
+          var duiBackFile = investorFolder.createFile(fileBlob);
+          duiBackFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          duiBackImageInfo = { success: true, url: duiBackFile.getUrl() };
+          logEvent(logSheet, requestId, e, 'INFO', 'DUI Reverso guardado correctamente: ' + duiBackImageInfo.url);
+        }
+        
+        // 4. PROCESAR COMPROBANTE SI EXISTE
+        if (sanitizedData.paymentReceiptPhotoPreview) {
+          var imageData = extractBase64Data(sanitizedData.paymentReceiptPhotoPreview);
+          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'Comprobante.jpg');
+          var paymentFile = investorFolder.createFile(fileBlob);
+          paymentFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          paymentReceiptImageInfo = { success: true, url: paymentFile.getUrl() };
+          logEvent(logSheet, requestId, e, 'INFO', 'Comprobante guardado correctamente: ' + paymentReceiptImageInfo.url);
+        }
+        
+        logEvent(logSheet, requestId, e, 'DEBUG-IMG', '============ PROCESAMIENTO DE IMÁGENES COMPLETADO ============');
+      } catch (imgError) {
+        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Error al procesar imágenes: ' + imgError.message);
+        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Stacktrace del error: ' + (imgError.stack || 'No disponible'));
+        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Tipo de error: ' + typeof imgError);
+        // A pesar del error, continuamos para guardar el formulario
       }
     } catch (imgError) {
-      logEvent(logSheet, requestId, e, 'ERROR', 'Error al procesar imágenes: ' + imgError.message);
-      console.error('Error al procesar imágenes:', imgError);
+      logEvent(logSheet, requestId, e, 'ERROR', 'Error general de imágenes: ' + imgError.message);
     }
     
     // Crear fórmulas para mostrar las imágenes en las celdas
@@ -443,34 +498,76 @@ function createErrorResponse(message, origin) {
  * @param {string} base64String - Cadena en formato base64 para validar
  * @return {boolean} True si es una imagen válida
  */
-function validateImageContent(base64String) {
-  if (!base64String) {
-    console.error('validateImageContent: String es null o undefined');
-    return false;
+function validateImageContent(base64Image) {
+  // Log para depuración
+  console.log('Validando imagen, longitud:', base64Image ? base64Image.length : 0);
+  
+  // Verificamos que la cadena comience con el prefijo de data URL
+  if (!base64Image || typeof base64Image !== 'string') {
+    console.error('Validación fallida: La imagen no es válida o está vacía');
+    return { valid: false, message: 'La imagen no es válida o está vacía' };
   }
   
-  if (typeof base64String !== 'string') {
-    console.error('validateImageContent: No es un string, es: ' + typeof base64String);
-    return false;
+  // Log de los primeros caracteres para depuración
+  console.log('Primeros 50 caracteres de la imagen:', base64Image.substring(0, 50));
+  
+  // Comprobamos que sea una imagen en formato data URL (siendo más flexible)
+  if (!base64Image.includes('data:image')) {
+    console.error('Validación fallida: No es formato data URL, primeros caracteres:', base64Image.substring(0, 30));
+    return { valid: false, message: 'La cadena no es una imagen en formato data URL' };
   }
   
-  // Verifica el formato básico de base64 de imágenes
-  if (base64String.startsWith('data:image/')) {
-    console.log('validateImageContent: Formato correcto con prefijo data:image/');
-    return true;
-  } else if (/^[A-Za-z0-9+/=]+$/.test(base64String)) {
-    console.log('validateImageContent: Formato base64 sin prefijo');
-    return true;
+  // Intentamos diferentes patrones de expresión regular para ser más flexibles
+  let matches = base64Image.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+  
+  // Si el patrón estándar no coincide, intentamos un patrón más flexible
+  if (!matches || matches.length !== 3) {
+    console.log('Patrón estándar no coincide, intentando patrón alternativo');
+    // Patrón más flexible que solo busca la parte crucial
+    matches = base64Image.match(/data:([A-Za-z-+/]+);base64,([^\s]+)/);
+    
+    if (!matches || matches.length !== 3) {
+      console.error('Validación fallida: No se pudo extraer mime type y datos base64');
+      return { valid: false, message: 'Formato de datos incorrecto' };
+    }
   }
   
-  // Para depuración
-  if (base64String.length > 50) {
-    console.error('validateImageContent: Formato inválido, primeros 50 caracteres: ' + base64String.substring(0, 50));
-  } else {
-    console.error('validateImageContent: Formato inválido: ' + base64String);
+  // Verificamos que sea una imagen JPEG, PNG o GIF
+  const mimeType = matches[1];
+  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg', 'image/webp'];
+  
+  if (!validImageTypes.includes(mimeType)) {
+    // Siendo más flexible, aceptamos cualquier tipo de imagen como válido
+    console.log('Tipo de imagen no reconocido oficialmente, pero continuando: ' + mimeType);
   }
   
-  return false;
+  // Los datos base64 son el segundo grupo de coincidencia
+  const base64Data = matches[2];
+  
+  // Verificamos que los datos base64 sean válidos
+  try {
+    console.log('Intentando decodificar datos base64, longitud:', base64Data.length);
+    const decoded = Utilities.base64Decode(base64Data);
+    
+    // Verificamos que los datos tengan un tamaño razonable (siendo más flexible)
+    console.log('Datos decodificados correctamente, tamaño:', decoded.length, 'bytes');
+    
+    if (decoded.length < 100) { // Más flexible: 100 bytes mínimo (podría ser un icono pequeño)
+      console.error('Validación fallida: Imagen demasiado pequeña', decoded.length, 'bytes');
+      return { valid: false, message: 'Imagen demasiado pequeña (menos de 100 bytes)' };
+    }
+    
+    if (decoded.length > 20 * 1024 * 1024) { // Más flexible: hasta 20MB
+      console.error('Validación fallida: Imagen demasiado grande', decoded.length, 'bytes');
+      return { valid: false, message: 'Imagen demasiado grande (máximo 20MB)' };
+    }
+    
+    console.log('Validación exitosa para imagen', mimeType, 'de', decoded.length, 'bytes');
+    return { valid: true, mimeType: mimeType, data: decoded };
+  } catch (e) {
+    console.error('Error al decodificar datos base64:', e.message, 'para longitud', base64Data ? base64Data.length : 0);
+    return { valid: false, message: 'Error al decodificar datos base64: ' + e.message };
+  }
 }
 
 /**
@@ -570,73 +667,45 @@ function logSecurityEvent(action, investorId, fileId, details) {
  * @param {string} investorName - Nombre del inversionista para el nombre de la carpeta
  * @return {object} Información del archivo creado
  */
-function secureImageStorage(base64Image, fileName, investorId, investorName) {
-  // Log para depuración
-  console.log('secureImageStorage: Iniciando guardado de ' + fileName);
+/**
+ * Función simplificada para guardar imágenes en Drive
+ * Esta versión es más directa y con menos complejidad para identificar problemas mejor
+ * @param {string} base64Image - Imagen en formato base64
+ * @param {string} fileName - Nombre del archivo
+ * @param {string} investorId - ID del inversionista
+ * @param {string} investorName - Nombre del inversionista
+ * @return {object} Información del archivo creado
+ */
+/**
+ * Extrae datos base64 de una cadena que podría contener metadata (como data:image/jpeg;base64,)
+ * @param {string} base64String - La cadena que contiene datos base64
+ * @return {string} Los datos base64 extraídos
+ */
+function extractBase64Data(base64String) {
+  if (!base64String) return '';
   
-  try {
-    // Validar el contenido de la imagen
-    if (!validateImageContent(base64Image)) {
-      console.error('secureImageStorage: Imagen inválida: ' + fileName);
-      throw new Error("Contenido de imagen no válido o potencialmente inseguro");
-    }
-    
-    console.log('secureImageStorage: Imagen validada correctamente');
-  
-    // 1. Crear/obtener carpeta raíz para todos los documentos
-    let rootFolder;
-    if (CONFIG.ROOT_FOLDER_ID) {
-      try {
-        rootFolder = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
-      } catch (e) {
-        rootFolder = getOrCreateFolder('Inversionistas - Documentos Seguros');
-      }
+  // Si es una cadena data:URL (contiene la cabecera)
+  if (base64String.indexOf('data:') === 0) {
+    const parts = base64String.split(',');
+    if (parts.length > 1) {
+      return parts[1]; // Devuelve solo la parte después de la coma
     } else {
-      rootFolder = getOrCreateFolder('Inversionistas - Documentos Seguros');
+      // Intento alternativo si no hay coma
+      const base64Index = base64String.indexOf('base64,');
+      if (base64Index >= 0) {
+        return base64String.substring(base64Index + 7);
+      }
     }
-    
-    // 2. Crear/obtener carpeta específica del inversionista
-    let folderName = `${investorName} (${investorId})`.trim();
-    if (!folderName || folderName === '()') {
-      folderName = `Inversionista_${investorId}`;
-    }
-    let investorFolder = getOrCreateSubfolder(rootFolder, folderName);
-    
-    // 3. Preparar la imagen
-    let imageData = base64Image.split(',');
-    let data = imageData.length > 1 ? imageData[1] : imageData[0];
-    let mimeType = getMimeType(base64Image);
-    
-    // 4. Crear el archivo con metadatos de seguridad
-    let blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
-    let file = investorFolder.createFile(blob);
-    
-    // 5. Configurar permisos para que cualquiera con el enlace pueda ver
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    // 6. Añadir metadatos de auditoría
-    file.setDescription(`Documento seguro para ${investorName} (${investorId}). Creado: ${new Date().toISOString()}`);
-    
-    // 7. Registrar en log de seguridad
-    logSecurityEvent('UPLOAD', investorId, file.getId(), `Archivo ${fileName} cargado para ${investorName}`);
-    
-    // 8. Retornar información del archivo
-    return {
-      id: file.getId(),
-      name: file.getName(),
-      url: file.getUrl(),
-      downloadUrl: file.getDownloadUrl(),
-      thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w200-h200`,
-      folder: investorFolder.getName(),
-      createdDate: new Date().toISOString()
-    };
-  } catch (error) {
-    // Capturar cualquier error y registrarlo
-    console.error('secureImageStorage ERROR: ' + error.message);
-    // Devolver un objeto con información de error
-    return {
-      error: true,
-      message: error.message
-    };
   }
+  
+  // Ya es base64 sin prefijo o no pudimos extraer correctamente
+  return base64String;
+}
+
+/**
+ * Función anterior de almacenamiento seguro de imágenes (mantenida por compatibilidad)
+ * @deprecated Use saveImageToDrive instead
+ */
+function secureImageStorage(base64Image, fileName, investorId, investorName) {
+  return saveImageToDrive(base64Image, fileName, investorId, investorName);
 }

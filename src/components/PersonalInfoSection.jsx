@@ -86,6 +86,12 @@ function PersonalInfoSection({ register, errors, setValue }) {
           localStorage.setItem('duiFrontPhotoPreview', imageUrl);
           localStorage.setItem('duiFrontPhotoName', file.name);
           console.log('Vista previa del frente guardada en localStorage');
+          
+          // Verificación de que la imagen se guarda correctamente
+          console.log('DUI Frontal guardado en localStorage. Primeros 50 caracteres:', 
+                      localStorage.getItem('duiFrontPhotoPreview').substring(0, 50));
+          console.log('Longitud total de la imagen DUI Frontal:', 
+                      localStorage.getItem('duiFrontPhotoPreview').length);
         } catch (e) {
           console.error('Error al guardar en localStorage:', e);
         }
@@ -129,6 +135,12 @@ function PersonalInfoSection({ register, errors, setValue }) {
           localStorage.setItem('duiBackPhotoPreview', imageUrl);
           localStorage.setItem('duiBackPhotoName', file.name);
           console.log('Vista previa del reverso guardada en localStorage');
+          
+          // Verificación de que la imagen se guarda correctamente
+          console.log('DUI Reverso guardado en localStorage. Primeros 50 caracteres:', 
+                      localStorage.getItem('duiBackPhotoPreview').substring(0, 50));
+          console.log('Longitud total de la imagen DUI Reverso:', 
+                      localStorage.getItem('duiBackPhotoPreview').length);
         } catch (e) {
           console.error('Error al guardar en localStorage:', e);
         }

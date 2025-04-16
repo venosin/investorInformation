@@ -90,14 +90,35 @@ function InvestorForm() {
       const duiBackPhotoPreview = localStorage.getItem('duiBackPhotoPreview');
       const paymentReceiptPhotoPreview = localStorage.getItem('paymentReceiptPhotoPreview');
       
+      console.log("=== VERIFICACIÓN DE IMÁGENES ANTES DE ENVÍO ====");
+      console.log("Imágenes disponibles: ", {
+        "DUI Frontal": duiFrontPhotoPreview ? "SÍ (" + duiFrontPhotoPreview.length + " caracteres)" : "NO",
+        "DUI Reverso": duiBackPhotoPreview ? "SÍ (" + duiBackPhotoPreview.length + " caracteres)" : "NO",
+        "Comprobante": paymentReceiptPhotoPreview ? "SÍ (" + paymentReceiptPhotoPreview.length + " caracteres)" : "NO"
+      });
+      
+      // Verificar formato correcto (debe comenzar con data:image)
+      if (duiFrontPhotoPreview && !duiFrontPhotoPreview.startsWith('data:image')) {
+        console.error("FORMATO INCORRECTO - DUI Frontal no tiene formato data:image. Primeros 50 caracteres:", duiFrontPhotoPreview.substring(0, 50));
+      }
+      if (duiBackPhotoPreview && !duiBackPhotoPreview.startsWith('data:image')) {
+        console.error("FORMATO INCORRECTO - DUI Reverso no tiene formato data:image. Primeros 50 caracteres:", duiBackPhotoPreview.substring(0, 50));
+      }
+      if (paymentReceiptPhotoPreview && !paymentReceiptPhotoPreview.startsWith('data:image')) {
+        console.error("FORMATO INCORRECTO - Comprobante no tiene formato data:image. Primeros 50 caracteres:", paymentReceiptPhotoPreview.substring(0, 50));
+      }
+      
       // Añadir el token secreto y las imágenes a los datos antes de enviar
-      inputJSON.value = JSON.stringify({
+      const dataToSend = {
         ...formData,
         secretToken: import.meta.env.VITE_APP_SECRET_TOKEN, // Añadir el token secreto para validación
-        duiFrontPhotoPreview,
-        duiBackPhotoPreview,
-        paymentReceiptPhotoPreview
-      });
+        duiFrontPhotoPreview: duiFrontPhotoPreview,
+        duiBackPhotoPreview: duiBackPhotoPreview,
+        paymentReceiptPhotoPreview: paymentReceiptPhotoPreview
+      };
+      
+      console.log("Enviando objeto completo con imágenes");
+      inputJSON.value = JSON.stringify(dataToSend);
       form.appendChild(inputJSON);
 
       // AÑADIR ESTA PARTE - Enviando el origen explícitamente
