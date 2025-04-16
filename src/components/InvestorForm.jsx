@@ -84,10 +84,19 @@ function InvestorForm() {
       const inputJSON = document.createElement("input");
       inputJSON.type = "hidden";
       inputJSON.name = "formData";
-      // Añadir el token secreto a los datos antes de enviar
+      
+      // Obtener las imágenes de localStorage
+      const duiFrontPhotoPreview = localStorage.getItem('duiFrontPhotoPreview');
+      const duiBackPhotoPreview = localStorage.getItem('duiBackPhotoPreview');
+      const paymentReceiptPhotoPreview = localStorage.getItem('paymentReceiptPhotoPreview');
+      
+      // Añadir el token secreto y las imágenes a los datos antes de enviar
       inputJSON.value = JSON.stringify({
         ...formData,
         secretToken: import.meta.env.VITE_APP_SECRET_TOKEN, // Añadir el token secreto para validación
+        duiFrontPhotoPreview,
+        duiBackPhotoPreview,
+        paymentReceiptPhotoPreview
       });
       form.appendChild(inputJSON);
 
@@ -314,6 +323,7 @@ function InvestorForm() {
               <InvestmentSection
                 register={register}
                 errors={errors}
+                setValue={setValue}
                 watch={watch}
               />
             )}
