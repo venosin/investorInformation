@@ -21,11 +21,22 @@ function InvestmentSection({ register, errors, setValue }) {
       
       if (savedPaymentImage && savedPaymentFileName) {
         console.log('Cargando imagen del comprobante de pago desde localStorage');
+        console.log('Longitud de la imagen cargada: ' + savedPaymentImage.length);
         setPaymentReceiptImage(savedPaymentImage);
         setPaymentReceiptFileName(savedPaymentFileName);
         
-        // Indicamos que tenemos la imagen del comprobante
-        setValue('paymentReceiptPhotoLoaded', true);
+        // Esperar un momento para asegurarnos que el componente está completamente montado
+        setTimeout(() => {
+          // Indicamos que tenemos la imagen del comprobante y forzamos la validación
+          setValue('paymentReceiptPhotoLoaded', true, { shouldValidate: false });
+          
+          // Guardar un valor simulado para el archivo
+          setValue('paymentReceiptPhotoFile', new File([
+            new Blob(['placeholder'])], savedPaymentFileName, { type: 'image/jpeg' }
+          ), { shouldValidate: false });
+          
+          console.log('Valores de comprobante establecidos correctamente');  
+        }, 100);
       }
     } catch (e) {
       console.error('Error al leer de localStorage:', e);
@@ -57,24 +68,32 @@ function InvestmentSection({ register, errors, setValue }) {
         const imageUrl = event.target.result;
         setPaymentReceiptImage(imageUrl);
         
-        // Verificación de que la imagen se guarda correctamente
-        console.log('Comprobante de pago guardado en localStorage. Primeros 50 caracteres:', 
-                    localStorage.getItem('paymentReceiptPhotoPreview').substring(0, 50));
-        console.log('Longitud total de la imagen del comprobante:', 
-                    localStorage.getItem('paymentReceiptPhotoPreview').length);
-        
         // Guardamos también en el localStorage para persistencia
         try {
           localStorage.setItem('paymentReceiptPhotoPreview', imageUrl);
           localStorage.setItem('paymentReceiptPhotoName', file.name);
           console.log('Vista previa del comprobante guardada en localStorage');
+          
+          // Verificación de que la imagen se guarda correctamente
+          console.log('Comprobante de pago guardado en localStorage. Primeros 50 caracteres:', 
+                    imageUrl.substring(0, 50));
+          console.log('Longitud total de la imagen del comprobante:', imageUrl.length);
         } catch (e) {
           console.error('Error al guardar en localStorage:', e);
         }
         
-        // Usamos un campo virtual para indicar que tenemos un archivo
-        setValue('paymentReceiptPhotoLoaded', true, { shouldValidate: true });
+        // Desactivar temporalmente la validación
+        setValue('paymentReceiptPhotoLoaded', true, { shouldValidate: false });
         setValue('paymentReceiptPhotoFile', file, { shouldValidate: false });
+        
+        // Un pequeño retraso para asegurar que los valores se establecen correctamente
+        setTimeout(() => {
+          // Confirmar que el valor está establecido
+          console.log('Confirmando valor establecido:', {
+            paymentReceiptPhotoLoaded: true,
+            fileName: file.name
+          });
+        }, 100);
       };
       
       reader.readAsDataURL(file);
@@ -260,7 +279,7 @@ function InvestmentSection({ register, errors, setValue }) {
           </div>
           
           {/* Mensajes de error para el comprobante de pago */}
-          {errors.paymentReceiptPhotoLoaded && (
+          {errors.paymentReceiptPhotoLoaded && !paymentReceiptImage && (
             <div className="mt-2 p-3 bg-red-100 border-2 border-red-500 rounded-lg" style={{backgroundColor: '#fee2e2', borderColor: '#ef4444'}}>
               <p className="font-bold text-red-700 flex items-center" style={{color: '#b91c1c'}}>
                 <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -313,7 +332,23 @@ function InvestmentSection({ register, errors, setValue }) {
         <input
           type="hidden"
           {...register("paymentReceiptPhotoLoaded", { 
-            validate: value => value === true || "La foto del comprobante de pago es requerida"
+            validate: value => {
+              console.log("Validando comprobante, valor actual:", value);
+              console.log("¿Imagen en localStorage?", localStorage.getItem('paymentReceiptPhotoPreview') !== null);
+              console.log("¿Imagen en estado?", paymentReceiptImage !== null);
+              
+              // Si hay imagen en el estado local (visible) o en localStorage, consideramos válido
+              const hasImage = value === true || 
+                localStorage.getItem('paymentReceiptPhotoPreview') !== null || 
+                paymentReceiptImage !== null;
+              
+              // Si ya se mostró la imagen, forzamos el valor a true
+              if (paymentReceiptImage && value !== true) {
+                setValue('paymentReceiptPhotoLoaded', true, { shouldValidate: false });
+              }
+              
+              return hasImage || "La foto del comprobante de pago es requerida";
+            }
           })}
         />
       </div>

@@ -270,8 +270,16 @@ function InvestorForm() {
             onClick={() => {
               setSubmitSuccess(false);
               setStep(1);
+              // Limpiar localStorage para evitar problemas en el nuevo formulario
+              localStorage.removeItem('paymentReceiptPhotoPreview');
+              localStorage.removeItem('paymentReceiptPhotoName');
+              localStorage.removeItem('duiFrontPhotoPreview');
+              localStorage.removeItem('duiFrontPhotoName');
+              localStorage.removeItem('duiBackPhotoPreview');
+              localStorage.removeItem('duiBackPhotoName');
             }} // Resetea el formulario al estado inicial
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors border-2 border-blue-900 shadow-md"
+            style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
             aria-label="Enviar otra solicitud"
           >
             Enviar otra solicitud
