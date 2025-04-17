@@ -111,16 +111,24 @@ function InvestorForm() {
         // Imprimir el token para depuración
       console.log("TOKEN ACTUAL EN VARIABLE DE ENTORNO:", import.meta.env.VITE_APP_SECRET_TOKEN || "INDEFINIDO");
       
+      // Obtener el token de las variables de entorno y limpiarlo
+      const envToken = import.meta.env.VITE_APP_SECRET_TOKEN?.trim();
+      
+      // Verificar que el token exista y sea válido
+      const tokenToUse = envToken && envToken.length > 10 ? 
+        envToken : "a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8"; // Token fallback si la variable es inválida
+      
       // Añadir el token secreto y las imágenes a los datos antes de enviar
       const dataToSend = {
         ...formData,
-        secretToken: "a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8", // Token hardcodeado temporalmente
+        secretToken: tokenToUse,
+        origin: window.location.origin, // Enviar el origen explícitamente
         duiFrontPhotoPreview: duiFrontPhotoPreview,
         duiBackPhotoPreview: duiBackPhotoPreview,
         paymentReceiptPhotoPreview: paymentReceiptPhotoPreview
       };
       
-      console.log("TOKEN ENVIADO (HARDCODEADO):", "a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8");
+      console.log("TOKEN ENVIADO:", tokenToUse);
       
       console.log("Enviando objeto completo con imágenes");
       inputJSON.value = JSON.stringify(dataToSend);
