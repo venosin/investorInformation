@@ -72,18 +72,6 @@ function InvestorForm() {
       const googleScriptUrl = import.meta.env.VITE_APP_GOOGLE_SCRIPT_URL;
 
       console.log("Enviando datos a Google Sheets:", formData);
-
-      // Para evitar problemas de CORS, usaremos un enfoque alternativo: una redirección por form
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = googleScriptUrl;
-      form.target = "_blank"; // Esto abrirá una nueva pestaña para la respuesta
-      form.style.display = "none";
-
-      // Convertir el objeto formData a un único campo JSON e incluir el token secreto
-      const inputJSON = document.createElement("input");
-      inputJSON.type = "hidden";
-      inputJSON.name = "formData";
       
       // Obtener las imágenes de localStorage
       const duiFrontPhotoPreview = localStorage.getItem('duiFrontPhotoPreview');
@@ -108,7 +96,7 @@ function InvestorForm() {
         console.error("FORMATO INCORRECTO - Comprobante no tiene formato data:image. Primeros 50 caracteres:", paymentReceiptPhotoPreview.substring(0, 50));
       }
       
-        // Imprimir el token para depuración
+      // Imprimir el token para depuración
       console.log("TOKEN ACTUAL EN VARIABLE DE ENTORNO:", import.meta.env.VITE_APP_SECRET_TOKEN || "INDEFINIDO");
       
       // Obtener el token de las variables de entorno y limpiarlo
@@ -129,37 +117,34 @@ function InvestorForm() {
       };
       
       console.log("TOKEN ENVIADO:", tokenToUse);
-      
       console.log("Enviando objeto completo con imágenes");
-      inputJSON.value = JSON.stringify(dataToSend);
-      form.appendChild(inputJSON);
 
-      // AÑADIR ESTA PARTE - Enviando el origen explícitamente
-      const inputOrigin = document.createElement("input");
-      inputOrigin.type = "hidden";
-      inputOrigin.name = "origin";
-      inputOrigin.value = window.location.origin; // Esto capturará http://localhost:5173
-      form.appendChild(inputOrigin);
-
-      // Añadir el formulario al DOM, enviarlo y luego eliminarlo
-      document.body.appendChild(form);
-      form.submit();
-
-      // Mostrar información útil
-      console.log("Formulario enviado a Google Sheets mediante redirección");
-      console.log(
-        "Nota: se abrirá una pestaña de confirmación. Puédela cerrar después de verificar"
-      );
-
-      // Eliminar el formulario del DOM después de un corto tiempo
-      setTimeout(() => {
-        document.body.removeChild(form);
-      }, 1000);
-
-      return {
-        success: true,
-        message: "Datos enviados a Google Sheets mediante redirección",
-      };
+      // Usar fetch para enviar los datos en lugar de redirección
+      const response = await fetch(googleScriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': window.location.origin
+        },
+        body: JSON.stringify({ formData: JSON.stringify(dataToSend) })
+      });
+      
+      // Verificar si la respuesta fue exitosa
+      if (response.ok) {
+        const result = await response.text();
+        console.log("Respuesta del servidor:", result);
+        
+        return {
+          success: true,
+          message: "Datos guardados correctamente en Google Sheets"
+        };
+      } else {
+        console.error("Error en la respuesta del servidor:", response.status, response.statusText);
+        return {
+          success: false,
+          message: `Error del servidor: ${response.status} ${response.statusText}`
+        };
+      }
     } catch (error) {
       console.error("Error al enviar datos a Google Sheets:", error);
       alert(
