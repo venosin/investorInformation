@@ -108,14 +108,19 @@ function InvestorForm() {
         console.error("FORMATO INCORRECTO - Comprobante no tiene formato data:image. Primeros 50 caracteres:", paymentReceiptPhotoPreview.substring(0, 50));
       }
       
+        // Imprimir el token para depuración
+      console.log("TOKEN ACTUAL EN VARIABLE DE ENTORNO:", import.meta.env.VITE_APP_SECRET_TOKEN || "INDEFINIDO");
+      
       // Añadir el token secreto y las imágenes a los datos antes de enviar
       const dataToSend = {
         ...formData,
-        secretToken: import.meta.env.VITE_APP_SECRET_TOKEN, // Añadir el token secreto para validación
+        secretToken: "a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8", // Token hardcodeado temporalmente
         duiFrontPhotoPreview: duiFrontPhotoPreview,
         duiBackPhotoPreview: duiBackPhotoPreview,
         paymentReceiptPhotoPreview: paymentReceiptPhotoPreview
       };
+      
+      console.log("TOKEN ENVIADO (HARDCODEADO):", "a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8");
       
       console.log("Enviando objeto completo con imágenes");
       inputJSON.value = JSON.stringify(dataToSend);
