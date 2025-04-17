@@ -359,30 +359,15 @@ function doPost(e) {
     logEvent(logSheet, requestId, e, 'ÉXITO', 'Datos guardados correctamente');
     
     // 9. Retornar respuesta exitosa
-    // Crear HTML más informativo para el usuario
+    // Crear HTML simplificado y profesional para el usuario
     var successHtml = '<html><head><title>Datos recibidos</title>' +
-      '<style>body{font-family:Arial,sans-serif; line-height:1.6; max-width:800px; margin:0 auto; padding:20px}' +
-      'h1{color:green} .info{background:#e9f7ef; padding:15px; border-radius:5px; margin:15px 0}' +
-      '.path{color:#1a5276; font-family:monospace; background:#eaecee; padding:3px 6px; border-radius:3px}' +
+      '<style>body{font-family:Arial,sans-serif; line-height:1.6; max-width:800px; margin:0 auto; padding:20px; text-align:center}' +
+      'h1{color:#28a745; margin-top:30px} .message{font-size:18px; margin:30px 0;}' +
+      '.close{margin-top:40px; color:#6c757d; font-size:16px;}' +
       '</style></head><body>' +
       '<h1>¡Datos guardados exitosamente!</h1>' +
-      '<p>Los datos han sido guardados en Google Sheets.</p>' +
-      
-      '<div class="info">' +
-      '<h3>Información de depuración:</h3>' +
-      '<p><strong>Imágenes guardadas:</strong></p>' +
-      '<ul>' +
-      (duiFrontImageInfo.url ? '<li>DUI Frontal: <a href="' + duiFrontImageInfo.url + '" target="_blank">Ver imagen</a></li>' : '<li>DUI Frontal: No guardado</li>') +
-      (duiBackImageInfo.url ? '<li>DUI Reverso: <a href="' + duiBackImageInfo.url + '" target="_blank">Ver imagen</a></li>' : '<li>DUI Reverso: No guardado</li>') +
-      (paymentReceiptImageInfo.url ? '<li>Comprobante: <a href="' + paymentReceiptImageInfo.url + '" target="_blank">Ver imagen</a></li>' : '<li>Comprobante: No guardado</li>') +
-      '</ul>' +
-      
-      '<p><strong>Carpeta en Google Drive:</strong></p>' +
-      '<p>Puedes encontrar las imágenes en tu Google Drive, en la siguiente ruta:</p>' +
-      '<p class="path">Mi unidad → Inversionistas - Documentos Seguros</p>' +
-      '</div>' +
-      
-      '<p>Puedes cerrar esta ventana.</p>' +
+      '<p class="message">Los datos han sido guardados correctamente.</p>' +
+      '<p class="close">Puedes cerrar esta ventana.</p>' +
       '</body></html>';
     
     return HtmlService.createHtmlOutput(successHtml);

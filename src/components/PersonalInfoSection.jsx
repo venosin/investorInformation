@@ -74,32 +74,37 @@ function PersonalInfoSection({ register, errors, setValue }) {
       // Guardar el nombre del archivo
       setFrontFileName(file.name);
       
-      // Crear URL para vista previa
+      // Crear URL para vista previa y comprimir la imagen
       const reader = new FileReader();
       reader.onload = function(event) {
         console.log('Archivo del frente leído correctamente, generando vista previa');
-        const imageUrl = event.target.result;
-        setFrontPreviewImage(imageUrl);
-        
-        // Guardamos también en el localStorage para persistencia
-        try {
-          localStorage.setItem('duiFrontPhotoPreview', imageUrl);
-          localStorage.setItem('duiFrontPhotoName', file.name);
-          console.log('Vista previa del frente guardada en localStorage');
+        const img = new Image();
+        img.onload = function() {
+          // Comprimir la imagen antes de almacenarla
+          const compressedImageUrl = compressImage(img, 800, 0.7);
+          setFrontPreviewImage(compressedImageUrl);
           
-          // Verificación de que la imagen se guarda correctamente
-          console.log('DUI Frontal guardado en localStorage. Primeros 50 caracteres:', 
-                      localStorage.getItem('duiFrontPhotoPreview').substring(0, 50));
-          console.log('Longitud total de la imagen DUI Frontal:', 
-                      localStorage.getItem('duiFrontPhotoPreview').length);
-        } catch (e) {
-          console.error('Error al guardar en localStorage:', e);
-        }
-        
-        // Usamos un campo virtual para indicar que tenemos un archivo
-        setValue('duiFrontPhotoLoaded', true, { shouldValidate: true });
-        setValue('duiFrontPhotoFile', file, { shouldValidate: false });
-        console.log('Archivo del frente registrado en el formulario');
+          // Guardamos la versión comprimida en localStorage
+          try {
+            localStorage.setItem('duiFrontPhotoPreview', compressedImageUrl);
+            localStorage.setItem('duiFrontPhotoName', file.name);
+            console.log('Vista previa comprimida del frente guardada en localStorage');
+            
+            // Verificación de que la imagen se guarda correctamente
+            console.log('DUI Frontal comprimido guardado en localStorage. Primeros 50 caracteres:', 
+                        localStorage.getItem('duiFrontPhotoPreview').substring(0, 50));
+            console.log('Longitud total de la imagen DUI Frontal comprimida:', 
+                        localStorage.getItem('duiFrontPhotoPreview').length);
+          } catch (e) {
+            console.error('Error al guardar en localStorage:', e);
+          }
+          
+          // Usamos un campo virtual para indicar que tenemos un archivo
+          setValue('duiFrontPhotoLoaded', true, { shouldValidate: true });
+          setValue('duiFrontPhotoFile', file, { shouldValidate: false });
+          console.log('Archivo del frente registrado en el formulario');
+        };
+        img.src = event.target.result;
       };
       
       reader.readAsDataURL(file);
@@ -123,32 +128,37 @@ function PersonalInfoSection({ register, errors, setValue }) {
       // Guardar el nombre del archivo
       setBackFileName(file.name);
       
-      // Crear URL para vista previa
+      // Crear URL para vista previa y comprimir la imagen
       const reader = new FileReader();
       reader.onload = function(event) {
         console.log('Archivo del reverso leído correctamente, generando vista previa');
-        const imageUrl = event.target.result;
-        setBackPreviewImage(imageUrl);
-        
-        // Guardamos también en el localStorage para persistencia
-        try {
-          localStorage.setItem('duiBackPhotoPreview', imageUrl);
-          localStorage.setItem('duiBackPhotoName', file.name);
-          console.log('Vista previa del reverso guardada en localStorage');
+        const img = new Image();
+        img.onload = function() {
+          // Comprimir la imagen antes de almacenarla
+          const compressedImageUrl = compressImage(img, 800, 0.7);
+          setBackPreviewImage(compressedImageUrl);
           
-          // Verificación de que la imagen se guarda correctamente
-          console.log('DUI Reverso guardado en localStorage. Primeros 50 caracteres:', 
-                      localStorage.getItem('duiBackPhotoPreview').substring(0, 50));
-          console.log('Longitud total de la imagen DUI Reverso:', 
-                      localStorage.getItem('duiBackPhotoPreview').length);
-        } catch (e) {
-          console.error('Error al guardar en localStorage:', e);
-        }
-        
-        // Usamos un campo virtual para indicar que tenemos un archivo
-        setValue('duiBackPhotoLoaded', true, { shouldValidate: true });
-        setValue('duiBackPhotoFile', file, { shouldValidate: false });
-        console.log('Archivo del reverso registrado en el formulario');
+          // Guardamos la versión comprimida en localStorage
+          try {
+            localStorage.setItem('duiBackPhotoPreview', compressedImageUrl);
+            localStorage.setItem('duiBackPhotoName', file.name);
+            console.log('Vista previa comprimida del reverso guardada en localStorage');
+            
+            // Verificación de que la imagen se guarda correctamente
+            console.log('DUI Reverso comprimido guardado en localStorage. Primeros 50 caracteres:', 
+                        localStorage.getItem('duiBackPhotoPreview').substring(0, 50));
+            console.log('Longitud total de la imagen DUI Reverso comprimida:', 
+                        localStorage.getItem('duiBackPhotoPreview').length);
+          } catch (e) {
+            console.error('Error al guardar en localStorage:', e);
+          }
+          
+          // Usamos un campo virtual para indicar que tenemos un archivo
+          setValue('duiBackPhotoLoaded', true, { shouldValidate: true });
+          setValue('duiBackPhotoFile', file, { shouldValidate: false });
+          console.log('Archivo del reverso registrado en el formulario');
+        };
+        img.src = event.target.result;
       };
       
       reader.readAsDataURL(file);
@@ -212,6 +222,37 @@ function PersonalInfoSection({ register, errors, setValue }) {
       fileInput.value = '';
     }
   };
+  
+  // Función para comprimir las imágenes y reducir su tamaño
+  const compressImage = (img, maxWidth, quality = 0.7) => {
+    const canvas = document.createElement('canvas');
+    
+    // Calcular el nuevo tamaño manteniendo la proporción
+    let width = img.width;
+    let height = img.height;
+    
+    if (width > maxWidth) {
+      height = (height * maxWidth) / width;
+      width = maxWidth;
+    }
+    
+    // Establecer dimensiones del canvas
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Dibujar la imagen en el canvas con el nuevo tamaño
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    
+    // Convertir a base64 con compresión
+    const compressedImageUrl = canvas.toDataURL('image/jpeg', quality);
+    
+    console.log(`Imagen comprimida: Original: ${img.width}x${img.height}, Nueva: ${width}x${height}`);
+    console.log(`Nivel de calidad: ${quality}`);
+    
+    return compressedImageUrl;
+  };
+  
   /**
    * Formatea automáticamente el número de teléfono (xxxx-xxxx)
    * @param {Event} e - Evento de cambio del input
