@@ -18,8 +18,8 @@ const CONFIG = {
   ALLOWED_ORIGINS: [
     'http://localhost:5173', // Esta es tu URL local actual
     'http://127.0.0.1:5173', // Alias alternativo para localhost
-    // Líneas comentadas hasta tener un dominio real
-    'https://investor-information.vercel.app',
+    'https://investor-information.vercel.app', // Dominio de producción (sin barra final)
+    'https://investor-information.vercel.app/', // Con barra final (para mayor compatibilidad)
     // 'https://www.tu-sitio-en-produccion.com',
   ],
 
@@ -43,51 +43,74 @@ const CONFIG = {
  * Manejador para solicitudes OPTIONS (preflight CORS)
  * Esto es necesario para responder correctamente a las verificaciones CORS
  */
+/**
+ * Maneja solicitudes OPTIONS (preflight CORS)
+ * @param {Object} e - Objeto de evento con los datos de la solicitud
+ * @return {HtmlOutput} Respuesta HTML para OPTIONS
+ */
 function doOptions(e) {
   // Obtener el origen de la solicitud
   var origin = e.parameter.origin || (e.headers && e.headers['Origin']);
 
   // Si el origen no está entre los permitidos, usar un valor genérico
-  // Esto previene revelar dominios permitidos a orígenes no autorizados
+  // para no revelar dominios permitidos a orígenes no autorizados
   if (!CONFIG.ALLOWED_ORIGINS.includes(origin)) {
     origin = 'https://example.com';
+    console.log('CORS: Origen no permitido:', origin || 'desconocido');
+  } else {
+    console.log('CORS: Origen permitido:', origin);
   }
 
-  // Configurar los encabezados CORS
-  var headers = {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-    'Access-Control-Allow-Credentials': 'true'
-  };
-
-  // Devolver respuesta vacía con los encabezados correctos
-  return ContentService.createTextOutput()
-    .setMimeType(ContentService.MimeType.JSON)
-    .setContent(JSON.stringify({ "status": "success" }))
-    .setHeaders(headers);
+  // Crear una respuesta HTML simple y compatible
+  var optionsResponse = '<!DOCTYPE html><html><head><title>CORS Response</title></head><body>'
+    + '<pre>' + JSON.stringify({ "status": "success", "cors": "enabled" }) + '</pre>'
+    + '</body></html>';
+  
+  // Usar HtmlService en modo básico y compatible
+  var htmlOutput = HtmlService.createHtmlOutput(optionsResponse);
+  
+  // Configuración básica para permitir iframes y reducir restricciones
+  htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  htmlOutput.setSandboxMode(HtmlService.SandboxMode.IFRAME);
+  
+  return htmlOutput;
 }
 
 /**
  * Manejador para solicitudes GET (cuando se accede directamente a la URL)
  * Esta función es necesaria para que el script funcione cuando se accede a través del navegador
+ * @param {Object} e - Objeto de evento con datos de la solicitud GET
+ * @return {HtmlOutput} Página HTML informativa
  */
 function doGet(e) {
-  // HTML simple para mostrar cuando se accede directamente al script
-  var htmlOutput = '<html><head><title>API de Inversionistas</title>' +
-    '<style>body{font-family:Arial,sans-serif; line-height:1.6; max-width:600px; margin:20px auto; padding:20px; text-align:center}' +
-    'h1{color:#2563eb;} p{margin:15px 0;} .note{background:#f0f9ff; padding:15px; border-radius:5px; margin:20px 0; text-align:left;}' +
+  // Registrar acceso directo para monitoreo
+  console.log('Acceso directo a la API desde el navegador');
+  
+  // HTML mejorado con estilo para acceso directo al script
+  var welcomeHtml = '<html><head><title>API de Inversionistas</title>' +
+    '<meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<style>' +
+    'body{font-family:Arial,sans-serif; line-height:1.6; max-width:600px; margin:20px auto; padding:20px; text-align:center; color:#333;}' +
+    'h1{color:#2563eb; margin-bottom:20px;}' +
+    'p{margin:15px 0; font-size:16px;}' +
+    '.note{background:#f0f9ff; padding:20px; border-radius:8px; margin:25px 0; text-align:left; border-left:4px solid #2563eb;}' +
+    '.success{color:#10b981; font-weight:bold;}' +
     '</style></head><body>' +
     '<h1>API de Formulario de Inversionistas</h1>' +
     '<p>Este es un endpoint de API para el formulario de registro de inversionistas.</p>' +
     '<div class="note">' +
     '<p><strong>Nota:</strong> Esta URL es para ser utilizada por la aplicación web y no está destinada a ser accedida directamente.</p>' +
-    '<p>Si estás viendo este mensaje, significa que el script está funcionando correctamente.</p>' +
+    '<p>Si estás viendo este mensaje, significa que <span class="success">el script está funcionando correctamente</span>.</p>' +
     '</div>' +
     '</body></html>';
   
-  return HtmlService.createHtmlOutput(htmlOutput);
+  // Crear y configurar respuesta HTML
+  var htmlOutput = HtmlService.createHtmlOutput(welcomeHtml);
+  htmlOutput.setTitle('API de Inversionistas');
+  htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  
+  return htmlOutput;
 }
 
 /**
@@ -416,7 +439,8 @@ function doPost(e) {
         sanitizedData.accountType || '', // Tipo de cuenta (campo corregido)
         
         // Información sobre si posee beneficiarios
-        sanitizedData.noBeneficiaries === true ? "NO POSEE BENEFICIARIOS" : "SÍ POSEE BENEFICIARIOS",
+        // El campo noBeneficiaries es true cuando el usuario NO quiere beneficiarios
+        (sanitizedData.noBeneficiaries === true || sanitizedData.noBeneficiaries === 'true') ? "NO POSEE BENEFICIARIOS" : "SÍ POSEE BENEFICIARIOS",
         
         // Beneficiarios
         sanitizedData.beneficiary1Name || '',
@@ -457,16 +481,32 @@ function doPost(e) {
     // 9. Retornar respuesta exitosa
     // Crear HTML simplificado y profesional para el usuario
     var successHtml = '<html><head><title>Datos recibidos</title>' +
-      '<style>body{font-family:Arial,sans-serif; line-height:1.6; max-width:800px; margin:0 auto; padding:20px; text-align:center}' +
+      '<meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+      '<meta http-equiv="X-UA-Compatible" content="ie=edge">' +
+      '<style>body{font-family:Arial,sans-serif; line-height:1.6; max-width:800px; margin:0 auto; padding:20px; text-align:center; background-color:#f8f9fa;}' +
       'h1{color:#28a745; margin-top:30px} .message{font-size:18px; margin:30px 0;}' +
       '.close{margin-top:40px; color:#6c757d; font-size:16px;}' +
+      '.container{background:#fff; border-radius:10px; padding:30px; box-shadow:0 2px 10px rgba(0,0,0,0.1);}' +
       '</style></head><body>' +
+      '<div class="container">' +
       '<h1>¡Datos guardados exitosamente!</h1>' +
       '<p class="message">Los datos han sido guardados correctamente.</p>' +
       '<p class="close">Puedes cerrar esta ventana.</p>' +
+      '</div>' +
       '</body></html>';
 
-    return HtmlService.createHtmlOutput(successHtml);
+    // Volver a usar HtmlService pero con configuración mejorada para compatibilidad
+    var htmlOutput = HtmlService.createHtmlOutput(successHtml);
+    htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    htmlOutput.setSandboxMode(HtmlService.SandboxMode.IFRAME);
+    htmlOutput.setTitle('¡Datos guardados correctamente!');
+    
+    // Solo usamos configuración básica y compatible de HtmlService
+    // Las metaetiquetas deben estar incluidas directamente en el HTML
+    
+    return htmlOutput;
+      
 
   } catch (error) {
     // Registrar el error
@@ -475,12 +515,26 @@ function doPost(e) {
     }
 
     // HTML para mostrar un error
-    var errorHtml = '<html><head><title>Error</title></head><body>' +
-      '<h1 style="color: red; font-family: Arial;">Error al guardar datos</h1>' +
+    var errorHtml = '<html><head><title>Error</title>' +
+      '<meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+      '<style>body{font-family:Arial,sans-serif; max-width:800px; margin:0 auto; padding:20px; text-align:center;}</style>' +
+      '</head><body>' +
+      '<h1 style="color: red;">Error al guardar datos</h1>' +
       '<p>Error: ' + error.message + '</p>' +
+      '<p>Puedes cerrar esta ventana e intentar nuevamente.</p>' +
       '</body></html>';
 
-    return HtmlService.createHtmlOutput(errorHtml);
+    // Usar el mismo enfoque mejorado de HtmlService
+    var errorOutput = HtmlService.createHtmlOutput(errorHtml);
+    errorOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    errorOutput.setSandboxMode(HtmlService.SandboxMode.IFRAME);
+    errorOutput.setTitle('Error en el formulario');
+    
+    // Solo usamos configuración básica soportada por HtmlService
+    // Las metaetiquetas ya están incluidas directamente en el HTML
+    
+    return errorOutput;
 
   } finally {
     // Siempre liberar el bloqueo
@@ -785,98 +839,154 @@ function extractBase64Data(base64String) {
 
 /**
  * Guarda una imagen en formato base64 en Google Drive y devuelve la información del archivo
- * @param {string} base64Image - Imagen en formato base64
+ * 
+ * @param {string} base64Image - Imagen en formato base64 (puede incluir prefijo data:image)
  * @param {string} fileName - Nombre del archivo a guardar
  * @param {string} investorId - ID del inversionista (para la carpeta)
- * @param {string} investorName - Nombre del inversionista (para la carpeta)
+ * @param {string} investorName - Nombre del inversionista (para organización)
  * @return {object} Objeto con url y fileId del archivo guardado
+ * @throws {Error} Si hay problemas con la imagen o con permisos de Drive
  */
 function saveImageToDrive(base64Image, fileName, investorId, investorName) {
+  if (!base64Image) {
+    throw new Error('La imagen es requerida');
+  }
+  
+  if (!fileName) {
+    fileName = `archivo_${new Date().getTime()}.jpg`;
+    console.log('INFO', 'Nombre de archivo generado automáticamente:', fileName);
+  }
+  
+  if (!investorId) {
+    throw new Error('ID de inversionista es requerido para almacenar la imagen');
+  }
+  
   try {
-    // Log para depuración
-    console.log('DEBUG-IMG', 'Comenzando procesamiento de imágenes...');
-    console.log('PRUEBA-DRIVE', 'Intentando acceder a DriveApp...');
+    // Registrar el inicio del proceso para auditoría
+    console.log('IMG-PROCESO', `Iniciando almacenamiento de imagen "${fileName}" para inversionista ${investorId}`);
     
-    // Acceder a Drive y verificar permisos
+    // Acceder a Drive
     const drive = DriveApp;
-    console.log('PRUEBA-DRIVE', 'Acceso a Drive obtenido correctamente');
     
-    // Verificar o crear la carpeta principal de inversionistas
-    let mainFolder;
-    if (CONFIG.ROOT_FOLDER_ID) {
-      // Si hay un ID de carpeta raíz configurado, usarlo
-      try {
-        mainFolder = drive.getFolderById(CONFIG.ROOT_FOLDER_ID);
-      } catch (e) {
-        // Si hay error, crear la carpeta en la raíz
-        mainFolder = drive.createFolder('Inversionistas');
-      }
-    } else {
-      // Buscar si existe una carpeta llamada Inversionistas en la raíz
-      const folderIterator = drive.getFoldersByName('Inversionistas');
-      if (folderIterator.hasNext()) {
-        mainFolder = folderIterator.next();
-      } else {
-        // Si no existe, crearla
-        mainFolder = drive.createFolder('Inversionistas');
-      }
-    }
+    // Obtener/crear estructura de carpetas
+    const mainFolder = getOrCreateMainFolder(drive);
+    const investorFolder = getOrCreateInvestorFolder(mainFolder, investorId, investorName);
     
-    console.log('PRUEBA-DRIVE', 'Carpeta principal "Inversionistas" encontrada: ' + mainFolder.getId());
-    
-    // Crear carpeta para este inversionista
-    const investorFolderName = `Inversionista_${investorId}`;
-    console.log('PRUEBA-DRIVE', 'Intentando crear carpeta: ' + investorFolderName + ' en Inversionistas');
-    
-    // Verificar si ya existe la carpeta del inversionista
-    let investorFolder;
-    const investorFolderIterator = mainFolder.getFoldersByName(investorFolderName);
-    if (investorFolderIterator.hasNext()) {
-      investorFolder = investorFolderIterator.next();
-    } else {
-      // Crear carpeta del inversionista
-      investorFolder = mainFolder.createFolder(investorFolderName);
-    }
-    
-    console.log('PRUEBA-DRIVE', 'Carpeta creada exitosamente para inversionista: ' + investorFolderName + ' | ID: ' + investorFolder.getId());
-    
-    // Extraer solo los datos base64 (eliminar prefijo data:image/jpeg;base64,)
+    // Procesar los datos de la imagen
     const base64Data = extractBase64Data(base64Image);
     if (!base64Data) {
-      throw new Error('Datos base64 no válidos');
+      throw new Error('Formato de imagen no válido. Debe ser una cadena base64 válida');
     }
     
-    // Determinar el tipo MIME
+    // Determinar el tipo MIME y validar
     const mimeType = getMimeType(base64Image);
+    if (!mimeType.startsWith('image/')) {
+      throw new Error(`Tipo de archivo no permitido: ${mimeType}. Solo se aceptan imágenes.`);
+    }
     
-    // Decodificar los datos base64
+    // Decodificar y crear el archivo
     const decodedData = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decodedData, mimeType, fileName);
+    const file = investorFolder.createFile(blob);
     
-    // Crear el archivo en la carpeta del inversionista
-    const file = investorFolder.createFile(Utilities.newBlob(decodedData, mimeType, fileName));
-    
-    // Generar la URL del archivo
+    // Generar la URL y registrar éxito
     const url = file.getUrl();
+    const fileId = file.getId();
     
-    // Registrar éxito
-    console.log('INFO', `${fileName} guardado correctamente: ${url}`);
+    // Registrar la operación exitosa
+    console.log('IMG-EXITO', `Archivo "${fileName}" guardado para inversionista ${investorId}: ${url}`);
+    
+    // Registrar evento de seguridad
+    logSecurityEvent('UPLOAD', investorId, fileId, `Imagen ${fileName} guardada correctamente`);
     
     // Devolver información del archivo
     return {
       url: url,
-      fileId: file.getId()
+      fileId: fileId,
+      name: fileName,
+      mimeType: mimeType,
+      size: decodedData.length
     };
   } catch (error) {
-    console.error('DEBUG-IMG', '#ERROR!');
-    console.error('ERROR-DRIVE', `Error al guardar imagen: ${error.message}`);
-    throw error; // Re-lanzar para manejo superior
+    // Mejorar el mensaje de error para facilitar la depuración
+    const errorMsg = `Error al guardar imagen "${fileName}": ${error.message}`;
+    console.error('ERROR-IMG', errorMsg);
+    
+    // Registrar el error para auditoría
+    logSecurityEvent('ERROR', investorId, 'NONE', errorMsg);
+    
+    // Re-lanzar con contexto adicional para mejor manejo superior
+    throw new Error(`Error al guardar imagen: ${error.message}`);
   }
 }
 
 /**
+ * Obtiene o crea la carpeta principal de inversionistas
+ * @private
+ * @param {DriveApp} drive - Instancia de DriveApp
+ * @return {Folder} Carpeta principal
+ * @desc Esta función busca primero por ID configurado, luego por nombre, y finalmente crea una nueva
+ */
+function getOrCreateMainFolder(drive) {
+  // Primero intentar con el ID configurado
+  if (CONFIG.ROOT_FOLDER_ID) {
+    try {
+      return drive.getFolderById(CONFIG.ROOT_FOLDER_ID);
+    } catch (e) {
+      console.log('INFO', 'ID de carpeta raíz inválido, creando carpeta nueva');
+    }
+  }
+  
+  // Buscar por nombre
+  const folderIterator = drive.getFoldersByName('Inversionistas');
+  if (folderIterator.hasNext()) {
+    return folderIterator.next();
+  }
+  
+  // Crear carpeta nueva
+  return drive.createFolder('Inversionistas');
+}
+
+/**
+ * Obtiene o crea la carpeta de un inversionista específico
+ * @private
+ * @param {Folder} mainFolder - Carpeta principal de inversionistas
+ * @param {string} investorId - ID del inversionista
+ * @param {string} investorName - Nombre del inversionista (opcional)
+ * @return {Folder} Carpeta del inversionista
+ */
+function getOrCreateInvestorFolder(mainFolder, investorId, investorName) {
+  // Formato estándar para nombre de carpeta
+  const folderName = `Inversionista_${investorId}`;
+  
+  // Verificar si ya existe
+  const folderIterator = mainFolder.getFoldersByName(folderName);
+  if (folderIterator.hasNext()) {
+    return folderIterator.next();
+  }
+  
+  // Crear carpeta
+  const newFolder = mainFolder.createFolder(folderName);
+  
+  // Agregar descripción para fácil identificación con nombre descriptivo
+  const description = investorName 
+    ? `Documentos del inversionista: ${investorName} (ID: ${investorId})` 
+    : `Documentos del inversionista ID: ${investorId}`;
+  newFolder.setDescription(description);
+  
+  return newFolder;
+}
+
+/**
  * Función anterior de almacenamiento seguro de imágenes (mantenida por compatibilidad)
+ * @param {string} base64Image - Imagen en formato base64
+ * @param {string} fileName - Nombre del archivo a guardar
+ * @param {string} investorId - ID del inversionista
+ * @param {string} investorName - Nombre del inversionista
+ * @return {object} Información del archivo guardado
  * @deprecated Use saveImageToDrive instead
  */
 function secureImageStorage(base64Image, fileName, investorId, investorName) {
+  console.log('ADVERTENCIA', 'Usando función secureImageStorage() obsoleta. Por favor actualice a saveImageToDrive()');
   return saveImageToDrive(base64Image, fileName, investorId, investorName);
 }
