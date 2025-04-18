@@ -139,7 +139,7 @@ function InvestorForm() {
       const form = document.createElement("form");
       form.method = "POST";
       form.action = googleScriptUrl;
-      form.target = "responseFrame"; // Usar un iframe oculto en lugar de una nueva pestaña
+      form.target = "_blank"; // Esto abrirá una nueva pestaña para la respuesta
       form.style.display = "none";
 
       // Convertir el objeto formData a un único campo JSON e incluir el token secreto
@@ -159,19 +159,6 @@ function InvestorForm() {
       // Añadir el formulario al DOM y enviarlo
       document.body.appendChild(form);
       form.submit();
-      
-      // Mostrar mensaje de éxito inmediatamente
-      setSubmitSuccess(true);
-      setTimeout(() => {
-        // Limpiar el formulario y localStorage después de enviar exitosamente
-        reset();
-        // Limpiar localStorage
-        localStorage.removeItem('duiFrontPhotoPreview');
-        localStorage.removeItem('duiBackPhotoPreview');
-        localStorage.removeItem('paymentReceiptPhotoPreview');
-        localStorage.removeItem('serviceReceiptPreview');
-        localStorage.removeItem('signaturePhotoPreview');
-      }, 3000); // Dar tiempo para que se complete el envío antes de limpiar
 
       // Limpiar el formulario después de enviarlo
       setTimeout(() => {
@@ -474,13 +461,6 @@ function InvestorForm() {
               )}
             </div>
           </form>
-          
-          {/* Iframe invisible para capturar respuestas del formulario sin abrir nueva ventana */}
-          <iframe 
-            name="responseFrame" 
-            style={{ display: 'none', width: 0, height: 0, border: 'none' }} 
-            title="Response Frame"
-          />
         </>
       )}
     </div>
