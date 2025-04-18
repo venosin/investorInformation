@@ -3,7 +3,7 @@
  * Incluye campos para registrar información de dos beneficiarios en caso de emergencia.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import FormSection from './FormSection';
 
 /**
@@ -14,7 +14,31 @@ import FormSection from './FormSection';
  * @param {Object} props.errors - Objeto con errores de validación de los campos
  * @returns {JSX.Element} Sección de beneficiarios
  */
-function BeneficiariesSection({ register, errors }) {
+function BeneficiariesSection({ register, errors, setValue, watch }) {
+  // Estado para controlar si el usuario tiene beneficiarios
+  const [noBeneficiaries, setNoBeneficiaries] = useState(false);
+  
+  // Observar el valor del campo noBeneficiaries
+  const noBeneficiariesValue = watch("noBeneficiaries");
+  
+  // Efecto para actualizar el estado cuando cambia el valor en el formulario
+  useEffect(() => {
+    setNoBeneficiaries(noBeneficiariesValue === "true");
+  }, [noBeneficiariesValue]);
+  
+  // Efecto para limpiar los campos de beneficiarios cuando se selecciona "No poseo beneficiarios"
+  useEffect(() => {
+    if (noBeneficiaries) {
+      // Limpiar campos de beneficiarios
+      setValue("beneficiary1Name", "");
+      setValue("beneficiary1Phone", "");
+      setValue("beneficiary1Instagram", "");
+      setValue("beneficiary2Name", "");
+      setValue("beneficiary2Phone", "");
+      setValue("beneficiary2Instagram", "");
+    }
+  }, [noBeneficiaries, setValue]);
+  
   /**
    * Formatea automáticamente el número de teléfono (xxxx-xxxx)
    * @param {string} value - Valor actual del campo
@@ -42,8 +66,43 @@ function BeneficiariesSection({ register, errors }) {
         </p>
       </div>
       
-      {/* Beneficiario 1 */}
-      <div className="bg-gray-50 p-6 rounded-lg mb-8">
+      {/* Opción para indicar que no tiene beneficiarios */}
+      <div className="mb-6">
+        <div className="flex items-center space-x-6 mb-4">
+          <div className="flex items-center">
+            <input
+              id="has-beneficiaries"
+              type="radio"
+              value="false"
+              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              {...register("noBeneficiaries")}
+              defaultChecked
+            />
+            <label htmlFor="has-beneficiaries" className="ml-2 block text-gray-700">
+              Sí, deseo registrar beneficiarios
+            </label>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              id="no-beneficiaries"
+              type="radio"
+              value="true"
+              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              {...register("noBeneficiaries")}
+            />
+            <label htmlFor="no-beneficiaries" className="ml-2 block text-gray-700">
+              No poseo beneficiarios
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      {/* Sección de beneficiarios que se oculta si selecciona "No poseo beneficiarios" */}
+      {!noBeneficiaries && (
+        <>
+          {/* Beneficiario 1 */}
+          <div className="bg-gray-50 p-6 rounded-lg mb-8">
         <h3 className="text-lg font-medium text-gray-700 mb-4">Beneficiario 1</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -54,7 +113,7 @@ function BeneficiariesSection({ register, errors }) {
               id="beneficiary1Name"
               type="text"
               {...register("beneficiary1Name", { 
-                required: "El nombre del beneficiario 1 es requerido" 
+                required: !noBeneficiaries ? "El nombre del beneficiario 1 es requerido" : false
               })}
               className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
                 errors.beneficiary1Name ? "border-red-500" : "border-gray-300"
@@ -80,9 +139,12 @@ function BeneficiariesSection({ register, errors }) {
                 e.target.value = formatted;
               }}
               {...register("beneficiary1Phone", { 
-                required: "El teléfono del beneficiario 1 es requerido",
+                required: !noBeneficiaries ? "El teléfono del beneficiario 1 es requerido" : false,
                 // Validación personalizada para permitir escritura parcial
                 validate: value => {
+                  // Si no hay beneficiarios, no validamos
+                  if (noBeneficiaries) return true;
+                  
                   // Cuando el campo está vacío, no mostramos error (ya se maneja con required)
                   if (!value) return true;
                   
@@ -140,7 +202,7 @@ function BeneficiariesSection({ register, errors }) {
               id="beneficiary2Name"
               type="text"
               {...register("beneficiary2Name", { 
-                required: "El nombre del beneficiario 2 es requerido" 
+                required: !noBeneficiaries ? "El nombre del beneficiario 2 es requerido" : false
               })}
               className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
                 errors.beneficiary2Name ? "border-red-500" : "border-gray-300"
@@ -166,9 +228,12 @@ function BeneficiariesSection({ register, errors }) {
                 e.target.value = formatted;
               }}
               {...register("beneficiary2Phone", { 
-                required: "El teléfono del beneficiario 2 es requerido",
+                required: !noBeneficiaries ? "El teléfono del beneficiario 2 es requerido" : false,
                 // Validación personalizada para permitir escritura parcial
                 validate: value => {
+                  // Si no hay beneficiarios, no validamos
+                  if (noBeneficiaries) return true;
+                  
                   // Cuando el campo está vacío, no mostramos error (ya se maneja con required)
                   if (!value) return true;
                   
@@ -213,6 +278,8 @@ function BeneficiariesSection({ register, errors }) {
           </div>
         </div>
       </div>
+        </>
+      )}
     </FormSection>
   );
 }

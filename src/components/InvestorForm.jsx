@@ -16,13 +16,14 @@ import PersonalInfoSection from "./PersonalInfoSection";
 import BankInfoSection from "./BankInfoSection";
 import BeneficiariesSection from "./BeneficiariesSection";
 import InvestmentSection from "./InvestmentSection";
+import ComplianceSection from "./ComplianceSection";
 
 /**
  * Componente de formulario multi-paso para inversionistas
  * @returns {JSX.Element} Formulario de registro de inversionistas
  */
 function InvestorForm() {
-  // Estado para controlar el paso actual del formulario (1-4)
+  // Estado para controlar el paso actual del formulario (1-5)
   const [step, setStep] = useState(1);
   // Estado para mostrar indicador de carga durante el envío
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,12 +78,16 @@ function InvestorForm() {
       const duiFrontPhotoPreview = localStorage.getItem('duiFrontPhotoPreview');
       const duiBackPhotoPreview = localStorage.getItem('duiBackPhotoPreview');
       const paymentReceiptPhotoPreview = localStorage.getItem('paymentReceiptPhotoPreview');
+      const serviceReceiptPhotoPreview = localStorage.getItem('serviceReceiptPreview');
+      const signaturePhotoPreview = localStorage.getItem('signaturePhotoPreview');
       
       console.log("=== VERIFICACIÓN DE IMÁGENES ANTES DE ENVÍO ====");
       console.log("Imágenes disponibles: ", {
         "DUI Frontal": duiFrontPhotoPreview ? "SÍ (" + duiFrontPhotoPreview.length + " caracteres)" : "NO",
         "DUI Reverso": duiBackPhotoPreview ? "SÍ (" + duiBackPhotoPreview.length + " caracteres)" : "NO",
-        "Comprobante": paymentReceiptPhotoPreview ? "SÍ (" + paymentReceiptPhotoPreview.length + " caracteres)" : "NO"
+        "Comprobante": paymentReceiptPhotoPreview ? "SÍ (" + paymentReceiptPhotoPreview.length + " caracteres)" : "NO",
+        "Recibo de Servicios": serviceReceiptPhotoPreview ? "SÍ (" + serviceReceiptPhotoPreview.length + " caracteres)" : "NO",
+        "Firma": signaturePhotoPreview ? "SÍ (" + signaturePhotoPreview.length + " caracteres)" : "NO"
       });
       
       // Verificar formato correcto (debe comenzar con data:image)
@@ -111,10 +116,20 @@ function InvestorForm() {
         ...formData,
         secretToken: tokenToUse,
         origin: window.location.origin, // Enviar el origen explícitamente
+        // Imágenes del DUI y comprobante
         duiFrontPhotoPreview: duiFrontPhotoPreview,
         duiBackPhotoPreview: duiBackPhotoPreview,
-        paymentReceiptPhotoPreview: paymentReceiptPhotoPreview
+        paymentReceiptPhotoPreview: paymentReceiptPhotoPreview,
+        // Imágenes de cumplimiento normativo (recibo y firma)
+        serviceReceiptPreview: serviceReceiptPhotoPreview,
+        signaturePhotoPreview: signaturePhotoPreview
       };
+      
+      // Verificar que estamos enviando las imágenes del recibo y firma
+      console.log("VERIFICACIÓN DE IMÁGENES DE CUMPLIMIENTO:", {
+        "Recibo de Servicios enviado": !!serviceReceiptPhotoPreview,
+        "Firma enviada": !!signaturePhotoPreview
+      });
       
       console.log("TOKEN ENVIADO:", tokenToUse);
       
@@ -288,8 +303,7 @@ function InvestorForm() {
               localStorage.removeItem('duiBackPhotoPreview');
               localStorage.removeItem('duiBackPhotoName');
             }} // Resetea el formulario al estado inicial
-            className="px-6 py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors border-2 border-blue-900 shadow-md"
-            style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
+            className="px-6 py-3 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 transition-colors border-2 border-blue-900 shadow-md" style={{color: '#ffffff', backgroundColor: '#1d4ed8'}}
             aria-label="Enviar otra solicitud"
           >
             Enviar otra solicitud
@@ -309,7 +323,7 @@ function InvestorForm() {
                 className="text-sm font-medium text-gray-500"
                 aria-live="polite"
               >
-                Paso {step} de 4
+                Paso {step} de 5
               </div>
             </div>
 
@@ -317,13 +331,13 @@ function InvestorForm() {
             <div
               className="w-full bg-gray-200 rounded-full h-2.5 mb-8"
               role="progressbar"
-              aria-valuenow={(step / 4) * 100}
+              aria-valuenow={(step / 5) * 100}
               aria-valuemin="0"
               aria-valuemax="100"
             >
               <div
                 className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                style={{ width: `${(step / 4) * 100}%` }} // Calcula el porcentaje de progreso
+                style={{ width: `${(step / 5) * 100}%` }} // Calcula el porcentaje de progreso
               ></div>
             </div>
           </div>
@@ -355,11 +369,25 @@ function InvestorForm() {
             )}
 
             {step === 3 && (
-              <BeneficiariesSection register={register} errors={errors} />
+              <BeneficiariesSection 
+                register={register} 
+                errors={errors} 
+                setValue={setValue}
+                watch={watch}
+              />
             )}
 
             {step === 4 && (
               <InvestmentSection
+                register={register}
+                errors={errors}
+                setValue={setValue}
+                watch={watch}
+              />
+            )}
+            
+            {step === 5 && (
+              <ComplianceSection
                 register={register}
                 errors={errors}
                 setValue={setValue}
@@ -382,7 +410,7 @@ function InvestorForm() {
               )}
 
               {/* Botón 'Siguiente' o 'Enviar' dependiendo del paso */}
-              {step < 4 ? (
+              {step < 5 ? (
                 <button
                   type="button"
                   onClick={nextStep}

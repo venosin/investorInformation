@@ -26,9 +26,9 @@ const CONFIG = {
   // Token secreto que debe coincidir con el enviado desde tu aplicación
   SECRET_TOKEN: 'a5f9e2c7d3b8h6j4k1m0p9r2s5t7v3x6z8',
 
-  // Límite de peticiones por IP en un periodo (1 hora)
+  // Límite de peticiones por IP en un periodo (1 hora) - Aumentado para pruebas
   RATE_LIMIT: {
-    MAX_REQUESTS: 10,       // Número máximo de solicitudes
+    MAX_REQUESTS: 1000,       // Número máximo de solicitudes - Aumentado temporalmente para pruebas - luego dejar en 10
     WINDOW_SECONDS: 3600,   // Periodo de tiempo en segundos (1 hora)
   },
 
@@ -204,13 +204,14 @@ function doPost(e) {
       logEvent(logSheet, requestId, e, 'Creando hoja', 'La hoja ' + CONFIG.SHEET_NAME + ' no existía');
       sheet = ss.insertSheet(CONFIG.SHEET_NAME);
 
-      // Agregar encabezados
+      // Agregar encabezados según los datos que realmente envía el frontend
       sheet.appendRow([
         'Fecha', 'ID Inversionista', 'Nombre Completo', 'DUI', 'Teléfono', 'Email', 'Banco',
-        'Número de Cuenta', 'Tipo de Cuenta', 'Beneficiario 1',
-        'Teléfono Beneficiario 1', 'Instagram Beneficiario 1',
+        'Número de Cuenta', 'Tipo de Cuenta', 'Beneficiarios',
+        'Beneficiario 1', 'Teléfono Beneficiario 1', 'Instagram Beneficiario 1',
         'Beneficiario 2', 'Teléfono Beneficiario 2', 'Instagram Beneficiario 2',
-        'Monto de Inversión', 'Comentarios', 'DUI Frontal', 'DUI Reverso', 'Comprobante'
+        'Monto de Inversión', 'Comentarios', 'Es PEP', 'Posición PEP', 'Recibo Servicios', 'Firma',
+        'DUI Frontal', 'DUI Reverso', 'Comprobante'
       ]);
     }
 
@@ -253,14 +254,48 @@ function doPost(e) {
 
     // Preparar el banco para el registro
     var bankName = sanitizedData.bankName === 'Otro' ? sanitizedData.customBank : sanitizedData.bankName;
+    
+    // Verificar si el frontend envió los flags de validación para recibo y firma
+    logEvent(logSheet, requestId, e, 'DEBUG-VALIDACION', 'Flag de recibo de servicios (serviceReceiptLoaded): ' + (sanitizedData.serviceReceiptLoaded ? 'SÍ' : 'NO'));
+    logEvent(logSheet, requestId, e, 'DEBUG-VALIDACION', 'Flag de firma (signaturePhotoLoaded): ' + (sanitizedData.signaturePhotoLoaded ? 'SÍ' : 'NO'));
+    
+    // Buscar las imágenes en los campos recibidos (sin localStorage - solo disponible en navegador)
+    const serviceReceiptImage = sanitizedData.serviceReceiptPreview || 
+                              jsonData.serviceReceiptPreview || 
+                              (jsonData.serviceReceiptImage || sanitizedData.serviceReceiptImage);
+    const signatureImage = sanitizedData.signaturePhotoPreview || 
+                         sanitizedData.signaturePreview || 
+                         jsonData.signaturePhotoPreview || 
+                         (jsonData.signatureImage || sanitizedData.signatureImage);
+    
+    if (serviceReceiptImage) {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Recibo de Servicios primeros 50 caracteres: ' + serviceReceiptImage.substring(0, 50));
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Recibo de Servicios longitud: ' + serviceReceiptImage.length + ' caracteres');
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Recibo de Servicios es base64 válido: ' + (serviceReceiptImage.startsWith('data:image') ? 'SÍ' : 'NO'));
+    } else {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Recibo de Servicios: No se encontró ninguna imagen en los campos disponibles');
+    }
+
+    if (signatureImage) {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Foto de Firma primeros 50 caracteres: ' + signatureImage.substring(0, 50));
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Foto de Firma longitud: ' + signatureImage.length + ' caracteres');
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Foto de Firma es base64 válido: ' + (signatureImage.startsWith('data:image') ? 'SÍ' : 'NO'));
+    } else {
+      logEvent(logSheet, requestId, e, 'DEBUG-CONTENIDO', 'Foto de Firma: No se encontró ninguna imagen en los campos disponibles');
+    }
+
+    // Preparar el banco para el registro
+    var bankName = sanitizedData.bankName === 'Otro' ? sanitizedData.customBank : sanitizedData.bankName;
 
     // Generar ID único para este inversionista
     var investorId = Utilities.getUuid();
 
-    // Procesar y guardar las imágenes en Drive y obtener URLs
-    var duiFrontImageInfo = {};
-    var duiBackImageInfo = {};
-    var paymentReceiptImageInfo = {};
+    // Extraer y procesar las imágenes si están presentes
+    let duiFrontalUrl = '';
+    let duiReversoUrl = '';
+    let comprobanteUrl = '';
+    let reciboServiciosUrl = '';
+    let firmaUrl = '';
 
     try {
       // DIAGNÓSTICO CRÍTICO: Verificar datos de imágenes antes de procesarlas
@@ -271,128 +306,153 @@ function doPost(e) {
       } else {
         logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'DUI Frontal NO ENCONTRADO o es NULL');
       }
-
-      // Log adicional para depuración
-      logEvent(logSheet, requestId, e, 'DEBUG-IMG', 'Comenzando procesamiento de imágenes...');
-
-      // Crear una estructura organizada de carpetas en Google Drive
-      try {
-        // 1. OBTENER ACCESO A DRIVE
-        logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Intentando acceder a DriveApp...');
-        let rootFolder = DriveApp.getRootFolder();
-        logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Acceso a Drive obtenido correctamente');
-
-        // 2. CREAR O ACCEDER A LA CARPETA PRINCIPAL "INVERSIONISTAS"
-        const mainFolderName = 'Inversionistas';
-        let mainFolder;
-        let mainFolderIterator = rootFolder.getFoldersByName(mainFolderName);
-
-        if (mainFolderIterator.hasNext()) {
-          // La carpeta principal ya existe, usarla
-          mainFolder = mainFolderIterator.next();
-          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Carpeta principal "' + mainFolderName + '" encontrada: ' + mainFolder.getId());
-        } else {
-          // Crear la carpeta principal si no existe
-          mainFolder = rootFolder.createFolder(mainFolderName);
-          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Carpeta principal "' + mainFolderName + '" creada: ' + mainFolder.getId());
-        }
-
-        // 3. CREAR CARPETA PARA ESTE INVERSIONISTA DENTRO DE LA CARPETA PRINCIPAL
-        let investorFolderName = 'Inversionista_' + investorId;
-        let investorFolder;
-
+      
+      // Procesar las imágenes en base64 si existen
+      if (sanitizedData.duiFrontPhotoPreview) {
         try {
-          // Crear carpeta para este inversionista dentro de la carpeta principal
-          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Intentando crear carpeta: ' + investorFolderName + ' en ' + mainFolderName);
-          investorFolder = mainFolder.createFolder(investorFolderName);
-          logEvent(logSheet, requestId, e, 'PRUEBA-DRIVE', 'Carpeta creada exitosamente para inversionista: ' + investorFolderName + ' | ID: ' + investorFolder.getId());
-        } catch (folderError) {
-          logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Error al crear carpeta de inversionista: ' + folderError.message);
-          logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Stacktrace del error: ' + (folderError.stack || 'No disponible'));
-          // Intentar usar la carpeta principal si falla la creación de carpeta individual
-          logEvent(logSheet, requestId, e, 'DIAGNÓSTICO', 'Usando carpeta principal como alternativa');
-          investorFolder = mainFolder;
+          const result = saveImageToDrive(sanitizedData.duiFrontPhotoPreview, 'dui_frontal.jpg', investorId, sanitizedData.fullName || 'Inversionista');
+          duiFrontalUrl = result.url;
+          // Registrar evento de seguridad
+          logSecurityEvent('UPLOAD', investorId, result.fileId, 'DUI Frontal');
+        } catch (imgError) {
+          console.error('Error al guardar imagen frontal del DUI:', imgError);
+          logEvent(logSheet, requestId, e, 'ERROR_IMAGEN', `Error guardando imagen DUI frontal: ${imgError.message}`);
         }
-
-        // 2. PROCESAR DUI FRONTAL SI EXISTE
-        if (sanitizedData.duiFrontPhotoPreview) {
-          var imageData = extractBase64Data(sanitizedData.duiFrontPhotoPreview);
-          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'DUI_Frontal.jpg');
-          var duiFrontFile = investorFolder.createFile(fileBlob);
-          duiFrontFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          duiFrontImageInfo = { success: true, url: duiFrontFile.getUrl() };
-          logEvent(logSheet, requestId, e, 'INFO', 'DUI Frontal guardado correctamente: ' + duiFrontImageInfo.url);
-        }
-
-        // 3. PROCESAR DUI REVERSO SI EXISTE
-        if (sanitizedData.duiBackPhotoPreview) {
-          var imageData = extractBase64Data(sanitizedData.duiBackPhotoPreview);
-          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'DUI_Reverso.jpg');
-          var duiBackFile = investorFolder.createFile(fileBlob);
-          duiBackFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          duiBackImageInfo = { success: true, url: duiBackFile.getUrl() };
-          logEvent(logSheet, requestId, e, 'INFO', 'DUI Reverso guardado correctamente: ' + duiBackImageInfo.url);
-        }
-
-        // 4. PROCESAR COMPROBANTE SI EXISTE
-        if (sanitizedData.paymentReceiptPhotoPreview) {
-          var imageData = extractBase64Data(sanitizedData.paymentReceiptPhotoPreview);
-          var fileBlob = Utilities.newBlob(Utilities.base64Decode(imageData), 'image/jpeg', 'Comprobante.jpg');
-          var paymentFile = investorFolder.createFile(fileBlob);
-          paymentFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          paymentReceiptImageInfo = { success: true, url: paymentFile.getUrl() };
-          logEvent(logSheet, requestId, e, 'INFO', 'Comprobante guardado correctamente: ' + paymentReceiptImageInfo.url);
-        }
-
-        logEvent(logSheet, requestId, e, 'DEBUG-IMG', '============ PROCESAMIENTO DE IMÁGENES COMPLETADO ============');
-      } catch (imgError) {
-        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Error al procesar imágenes: ' + imgError.message);
-        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Stacktrace del error: ' + (imgError.stack || 'No disponible'));
-        logEvent(logSheet, requestId, e, 'ERROR-CRÍTICO', 'Tipo de error: ' + typeof imgError);
-        // A pesar del error, continuamos para guardar el formulario
       }
-    } catch (imgError) {
-      logEvent(logSheet, requestId, e, 'ERROR', 'Error general de imágenes: ' + imgError.message);
+
+      if (sanitizedData.duiBackPhotoPreview) {
+        try {
+          const result = saveImageToDrive(sanitizedData.duiBackPhotoPreview, 'dui_reverso.jpg', investorId, sanitizedData.fullName || 'Inversionista');
+          duiReversoUrl = result.url;
+          // Registrar evento de seguridad
+          logSecurityEvent('UPLOAD', investorId, result.fileId, 'DUI Reverso');
+        } catch (imgError) {
+          console.error('Error al guardar imagen reverso del DUI:', imgError);
+          logEvent(logSheet, requestId, e, 'ERROR_IMAGEN', `Error guardando imagen DUI reverso: ${imgError.message}`);
+        }
+      }
+
+      if (sanitizedData.paymentReceiptPhotoPreview) {
+        try {
+          const result = saveImageToDrive(sanitizedData.paymentReceiptPhotoPreview, 'comprobante_pago.jpg', investorId, sanitizedData.fullName || 'Inversionista');
+          comprobanteUrl = result.url;
+          // Registrar evento de seguridad
+          logSecurityEvent('UPLOAD', investorId, result.fileId, 'Comprobante de Pago');
+        } catch (imgError) {
+          console.error('Error al guardar imagen de comprobante:', imgError);
+          logEvent(logSheet, requestId, e, 'ERROR_IMAGEN', `Error guardando imagen de comprobante: ${imgError.message}`);
+        }
+      }
+      
+      // Procesar la imagen del recibo de servicios si existe
+      // Nota: Verificamos por serviceReceiptLoaded (flag booleano) y buscamos la imagen en múltiples campos
+      if (sanitizedData.serviceReceiptLoaded) {
+        try {
+          // Buscar la imagen en varios campos posibles (en orden de probabilidad)
+          const serviceReceiptImage = sanitizedData.serviceReceiptPreview || 
+                                     jsonData.serviceReceiptPreview || 
+                                     sanitizedData.serviceReceiptImage || 
+                                     jsonData.serviceReceiptImage;
+
+          if (serviceReceiptImage) {
+            logEvent(logSheet, requestId, e, 'DEBUG-PROCESAMIENTO', 'Imagen de recibo de servicios encontrada');
+            const result = saveImageToDrive(serviceReceiptImage, 'recibo_servicios.jpg', investorId, sanitizedData.fullName || 'Inversionista');
+            reciboServiciosUrl = result.url;
+            // Registrar evento de seguridad
+            logSecurityEvent('UPLOAD', investorId, result.fileId, 'Recibo de Servicios');
+          } else {
+            logEvent(logSheet, requestId, e, 'ADVERTENCIA', 'No se pudo encontrar la imagen del recibo de servicios aunque serviceReceiptLoaded es true');
+          }
+        } catch (imgError) {
+          console.error('Error al guardar imagen del recibo de servicios:', imgError);
+          logEvent(logSheet, requestId, e, 'ERROR_IMAGEN', `Error guardando imagen del recibo de servicios: ${imgError.message}`);
+        }
+      }
+      
+      // Procesar la imagen de la firma si existe
+      // Nota: Verificamos por signaturePhotoLoaded (flag booleano) y buscamos la imagen en múltiples campos
+      if (sanitizedData.signaturePhotoLoaded) {
+        try {
+          // Buscar la imagen en varios campos posibles (en orden de probabilidad)
+          const signatureImage = sanitizedData.signaturePhotoPreview ||
+                               sanitizedData.signaturePreview ||
+                               jsonData.signaturePhotoPreview ||
+                               sanitizedData.signatureImage ||
+                               jsonData.signatureImage;
+
+          if (signatureImage) {
+            logEvent(logSheet, requestId, e, 'DEBUG-PROCESAMIENTO', 'Imagen de firma encontrada');
+            const result = saveImageToDrive(signatureImage, 'firma.jpg', investorId, sanitizedData.fullName || 'Inversionista');
+            firmaUrl = result.url;
+            // Registrar evento de seguridad
+            logSecurityEvent('UPLOAD', investorId, result.fileId, 'Foto de Firma');
+          } else {
+            logEvent(logSheet, requestId, e, 'ADVERTENCIA', 'No se pudo encontrar la imagen de la firma aunque signaturePhotoLoaded es true');
+          }
+        } catch (imgError) {
+          console.error('Error al guardar imagen de la firma:', imgError);
+          logEvent(logSheet, requestId, e, 'ERROR_IMAGEN', `Error guardando imagen de la firma: ${imgError.message}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error al procesar imágenes:', error);
+      logEvent(logSheet, requestId, e, 'ERROR-PROCESAMIENTO', `Error al procesar imágenes: ${error.message}`);
     }
 
-    // Crear fórmulas para mostrar las imágenes en las celdas
-    var duiFrontImageFormula = duiFrontImageInfo.url ?
-      `=HYPERLINK("${duiFrontImageInfo.url}", "Ver DUI Frontal")` : '';
-
-    var duiBackImageFormula = duiBackImageInfo.url ?
-      `=HYPERLINK("${duiBackImageInfo.url}", "Ver DUI Reverso")` : '';
-
-    var paymentReceiptImageFormula = paymentReceiptImageInfo.url ?
-      `=HYPERLINK("${paymentReceiptImageInfo.url}", "Ver Comprobante")` : '';
-
-    // Crear datos para la fila
-    var rowData = [
-      new Date().toLocaleString(),          // Fecha
-      investorId,                           // ID Inversionista
-      sanitizedData.fullName || '',         // Nombre Completo
-      sanitizedData.duiNumber || '',        // DUI
-      sanitizedData.phoneNumber || '',      // Teléfono
-      sanitizedData.email || '',            // Email
-      bankName || '',                       // Banco
-      sanitizedData.accountNumber || '',    // Número de Cuenta
-      sanitizedData.accountType || '',      // Tipo de Cuenta
-      sanitizedData.beneficiary1Name || '', // Beneficiario 1
-      sanitizedData.beneficiary1Phone || '',// Teléfono Beneficiario 1
-      sanitizedData.beneficiary1Instagram || '', // Instagram Beneficiario 1
-      sanitizedData.beneficiary2Name || '', // Beneficiario 2
-      sanitizedData.beneficiary2Phone || '',// Teléfono Beneficiario 2
-      sanitizedData.beneficiary2Instagram || '', // Instagram Beneficiario 2
-      sanitizedData.investmentAmount || '', // Monto de Inversión
-      sanitizedData.comments || '',         // Comentarios
-      duiFrontImageFormula,                 // Enlace a imagen DUI Frontal
-      duiBackImageFormula,                  // Enlace a imagen DUI Reverso
-      paymentReceiptImageFormula            // Enlace a imagen Comprobante de Pago
-    ];
-
-    // 8. Agregar datos a la hoja
-    logEvent(logSheet, requestId, e, 'Agregando datos', 'Intentando appendRow');
-    sheet.appendRow(rowData);
-    logEvent(logSheet, requestId, e, 'ÉXITO', 'Datos guardados correctamente');
+    try {
+      // Usar 'sheet' en lugar de 'dataSheet' ya que esa es la variable definida arriba
+      // Agregar datos a la hoja de cálculo
+      sheet.appendRow([
+        new Date(), // Fecha de registro
+        investorId, // ID único generado
+        sanitizedData.fullName || '', // Nombre completo (campo corregido)
+        sanitizedData.duiNumber || '', // Número de DUI (campo corregido)
+        sanitizedData.phoneNumber || '', // Teléfono (campo corregido)
+        sanitizedData.email || '', // Email (campo corregido)
+        
+        // Datos bancarios
+        bankName || '', // Nombre del banco
+        sanitizedData.accountNumber || '', // Número de cuenta (campo corregido)
+        sanitizedData.accountType || '', // Tipo de cuenta (campo corregido)
+        
+        // Información sobre si posee beneficiarios
+        sanitizedData.noBeneficiaries === true ? "NO POSEE BENEFICIARIOS" : "SÍ POSEE BENEFICIARIOS",
+        
+        // Beneficiarios
+        sanitizedData.beneficiary1Name || '',
+        sanitizedData.beneficiary1Phone || '',
+        sanitizedData.beneficiary1Instagram || '',
+        
+        sanitizedData.beneficiary2Name || '',
+        sanitizedData.beneficiary2Phone || '',
+        sanitizedData.beneficiary2Instagram || '',
+        
+        // Datos de inversión
+        sanitizedData.investmentAmount || '', // Monto de inversión (campo corregido)
+        sanitizedData.comments || '', // Comentarios (campo corregido)
+        
+        // Datos de cumplimiento normativo
+        sanitizedData.isPEP || 'no',
+        sanitizedData.isPEP === 'si' ? (sanitizedData.pepPosition || '') : '',
+        
+        // Imágenes de cumplimiento
+        reciboServiciosUrl,
+        firmaUrl,
+        
+        // URLs de las imágenes (DUI y comprobante)
+        duiFrontalUrl,
+        duiReversoUrl,
+        comprobanteUrl,
+        
+        // No hay más campos adicionales
+      ]);
+      
+      logEvent(logSheet, requestId, e, 'ÉXITO', 'Datos guardados correctamente');
+    } catch (error) {
+      console.error('Error al guardar en la hoja de cálculo:', error);
+      logEvent(logSheet, requestId, e, 'ERROR-GUARDADO', `Error al guardar en hoja: ${error.message}`);
+      throw error; // Re-lanzar para que se maneje en el bloque catch principal
+    }
 
     // 9. Retornar respuesta exitosa
     // Crear HTML simplificado y profesional para el usuario
@@ -721,6 +781,96 @@ function extractBase64Data(base64String) {
 
   // Ya es base64 sin prefijo o no pudimos extraer correctamente
   return base64String;
+}
+
+/**
+ * Guarda una imagen en formato base64 en Google Drive y devuelve la información del archivo
+ * @param {string} base64Image - Imagen en formato base64
+ * @param {string} fileName - Nombre del archivo a guardar
+ * @param {string} investorId - ID del inversionista (para la carpeta)
+ * @param {string} investorName - Nombre del inversionista (para la carpeta)
+ * @return {object} Objeto con url y fileId del archivo guardado
+ */
+function saveImageToDrive(base64Image, fileName, investorId, investorName) {
+  try {
+    // Log para depuración
+    console.log('DEBUG-IMG', 'Comenzando procesamiento de imágenes...');
+    console.log('PRUEBA-DRIVE', 'Intentando acceder a DriveApp...');
+    
+    // Acceder a Drive y verificar permisos
+    const drive = DriveApp;
+    console.log('PRUEBA-DRIVE', 'Acceso a Drive obtenido correctamente');
+    
+    // Verificar o crear la carpeta principal de inversionistas
+    let mainFolder;
+    if (CONFIG.ROOT_FOLDER_ID) {
+      // Si hay un ID de carpeta raíz configurado, usarlo
+      try {
+        mainFolder = drive.getFolderById(CONFIG.ROOT_FOLDER_ID);
+      } catch (e) {
+        // Si hay error, crear la carpeta en la raíz
+        mainFolder = drive.createFolder('Inversionistas');
+      }
+    } else {
+      // Buscar si existe una carpeta llamada Inversionistas en la raíz
+      const folderIterator = drive.getFoldersByName('Inversionistas');
+      if (folderIterator.hasNext()) {
+        mainFolder = folderIterator.next();
+      } else {
+        // Si no existe, crearla
+        mainFolder = drive.createFolder('Inversionistas');
+      }
+    }
+    
+    console.log('PRUEBA-DRIVE', 'Carpeta principal "Inversionistas" encontrada: ' + mainFolder.getId());
+    
+    // Crear carpeta para este inversionista
+    const investorFolderName = `Inversionista_${investorId}`;
+    console.log('PRUEBA-DRIVE', 'Intentando crear carpeta: ' + investorFolderName + ' en Inversionistas');
+    
+    // Verificar si ya existe la carpeta del inversionista
+    let investorFolder;
+    const investorFolderIterator = mainFolder.getFoldersByName(investorFolderName);
+    if (investorFolderIterator.hasNext()) {
+      investorFolder = investorFolderIterator.next();
+    } else {
+      // Crear carpeta del inversionista
+      investorFolder = mainFolder.createFolder(investorFolderName);
+    }
+    
+    console.log('PRUEBA-DRIVE', 'Carpeta creada exitosamente para inversionista: ' + investorFolderName + ' | ID: ' + investorFolder.getId());
+    
+    // Extraer solo los datos base64 (eliminar prefijo data:image/jpeg;base64,)
+    const base64Data = extractBase64Data(base64Image);
+    if (!base64Data) {
+      throw new Error('Datos base64 no válidos');
+    }
+    
+    // Determinar el tipo MIME
+    const mimeType = getMimeType(base64Image);
+    
+    // Decodificar los datos base64
+    const decodedData = Utilities.base64Decode(base64Data);
+    
+    // Crear el archivo en la carpeta del inversionista
+    const file = investorFolder.createFile(Utilities.newBlob(decodedData, mimeType, fileName));
+    
+    // Generar la URL del archivo
+    const url = file.getUrl();
+    
+    // Registrar éxito
+    console.log('INFO', `${fileName} guardado correctamente: ${url}`);
+    
+    // Devolver información del archivo
+    return {
+      url: url,
+      fileId: file.getId()
+    };
+  } catch (error) {
+    console.error('DEBUG-IMG', '#ERROR!');
+    console.error('ERROR-DRIVE', `Error al guardar imagen: ${error.message}`);
+    throw error; // Re-lanzar para manejo superior
+  }
 }
 
 /**
